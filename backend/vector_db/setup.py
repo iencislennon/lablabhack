@@ -1,5 +1,7 @@
 """
 vector_db/setup.py — ChromaDB collection initialisation for each agent.
+Client, embedding function, and collections are cached as singletons
+to avoid reloading the embedding model on every agent call.
 """
 
 import chromadb
@@ -7,17 +9,30 @@ import os
 from chromadb.utils import embedding_functions
 from loguru import logger
 
+# ── Singletons — created once, reused forever ──────────────────────────────────
+_client: chromadb.PersistentClient | None = None
+_ef = None
+_collections: dict = {}
+
 
 def get_chroma_client() -> chromadb.PersistentClient:
-    persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
-    os.makedirs(persist_dir, exist_ok=True)
-    return chromadb.PersistentClient(path=persist_dir)
+    global _client
+    if _client is None:
+        persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
+        os.makedirs(persist_dir, exist_ok=True)
+        _client = chromadb.PersistentClient(path=persist_dir)
+        logger.info("ChromaDB client initialised")
+    return _client
 
 
 def get_embedding_function():
-    return embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name="all-MiniLM-L6-v2"
-    )
+    global _ef
+    if _ef is None:
+        _ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name="all-MiniLM-L6-v2"
+        )
+        logger.info("Embedding model loaded (all-MiniLM-L6-v2)")
+    return _ef
 
 
 COLLECTION_NAMES = {
@@ -30,6 +45,10 @@ COLLECTION_NAMES = {
 
 
 def get_or_create_collection(agent_name: str) -> chromadb.Collection:
+    global _collections
+    if agent_name in _collections:
+        return _collections[agent_name]
+
     client = get_chroma_client()
     ef = get_embedding_function()
     collection_name = COLLECTION_NAMES[agent_name]
@@ -39,47 +58,41 @@ def get_or_create_collection(agent_name: str) -> chromadb.Collection:
         embedding_function=ef,
         metadata={"agent": agent_name, "hnsw:space": "cosine"},
     )
+    _collections[agent_name] = collection
     logger.info(f"Collection '{collection_name}' ready ({collection.count()} docs)")
     return collection
 
 
-def query_collection(agent_name: str, queries: list[str], n_results: int = 5) -> list[str]:
+def query_collection(agent_name: str, queries: list[str], n_results: int = 3) -> list[str]:
     """
-    RAG query against an agent's collection.
-    Returns a list of relevant document texts.
+    RAG query — returns relevant document texts.
+    n_results reduced to 3 (was 5) for faster response with same quality.
     """
     collection = get_or_create_collection(agent_name)
 
     if collection.count() == 0:
-        logger.warning(f"Collection '{agent_name}' is empty — no RAG context available")
+        logger.warning(f"Collection '{agent_name}' is empty — run seed_data.py first")
         return []
 
     results = collection.query(
-        query_texts=queries,
+        query_texts=queries[:2],  # limit to 2 queries for speed
         n_results=min(n_results, collection.count()),
-        include=["documents", "metadatas", "distances"],
+        include=["documents", "distances"],
     )
 
     docs = []
     seen = set()
-    for doc_list, meta_list, dist_list in zip(
-        results["documents"], results["metadatas"], results["distances"]
-    ):
-        for doc, meta, dist in zip(doc_list, meta_list, dist_list):
-            # Filter by cosine distance threshold to keep only relevant results
-            if doc not in seen and dist < 0.7:
+    for doc_list, dist_list in zip(results["documents"], results["distances"]):
+        for doc, dist in zip(doc_list, dist_list):
+            if doc not in seen and dist < 0.75:
                 docs.append(doc)
                 seen.add(doc)
 
-    logger.info(f"RAG [{agent_name}]: {len(docs)} relevant docs retrieved")
+    logger.info(f"RAG [{agent_name}]: {len(docs)} docs retrieved")
     return docs
 
 
 def add_documents(agent_name: str, documents: list[dict]):
-    """
-    Add documents to an agent's collection.
-    documents: [{"id": "...", "text": "...", "metadata": {...}}]
-    """
     collection = get_or_create_collection(agent_name)
     collection.add(
         ids=[d["id"] for d in documents],

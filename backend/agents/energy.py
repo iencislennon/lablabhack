@@ -4,18 +4,14 @@ agents/energy.py — Energy Agent.
 
 import asyncio
 import os
+from pathlib import Path
 from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
 from loguru import logger
-
-from band import Agent
-from band.adapters import AnthropicAdapter
-from band.config import load_agent_config
-
 from backend.agents.base_agent import BaseAgent
 from backend.schemas import EnergyPayload
 from backend.config import SYSTEM_PROMPTS
-
-load_dotenv()
 
 
 class EnergyAgent(BaseAgent):
@@ -24,19 +20,11 @@ class EnergyAgent(BaseAgent):
 
     async def analyze(self, scenario: str) -> EnergyPayload:
         result = await super().analyze(scenario)
-
         try:
             payload = EnergyPayload(**result)
-            logger.info(
-                f"[energy] ✅ price=${payload.energy_price_usd_kwh}/kWh | "
-                f"grid_load={payload.grid_load_pct}% | "
-                f"shortage_alert={payload.shortage_alert}"
-            )
-
-            # Warn loudly on critical shortage — triggers human escalation
+            logger.info(f"[energy] ✅ price=${payload.energy_price_usd_kwh}/kWh | alert={payload.shortage_alert}")
             if payload.shortage_alert == "critical":
-                logger.warning("⚡ [energy] CRITICAL shortage alert! Human escalation required.")
-
+                logger.warning("⚡ [energy] CRITICAL shortage — human escalation required")
             return payload
         except Exception as e:
             logger.error(f"[energy] Pydantic validation error: {e}")
@@ -44,28 +32,20 @@ class EnergyAgent(BaseAgent):
 
 
 async def run_energy_band_agent():
-    load_dotenv()
-    agent_id, api_key = load_agent_config("energy_agent")
+    """Band platform mode — only used by launch_all_band_agents.py."""
+    from thenvoi import Agent
+    from thenvoi.adapters import AnthropicAdapter
+    from thenvoi.config import load_agent_config
 
+    agent_id, api_key = load_agent_config("energy_agent")
     adapter = AnthropicAdapter(
         model="claude-sonnet-4-6",
-        custom_section=SYSTEM_PROMPTS["energy"] + """
-
-BAND ROOM INSTRUCTIONS:
-Analyse the energy situation and its impact on food production.
-shortage_alert = "critical" means immediate escalation to a human decision-maker.
-After completing your analysis, mention @Coordinator with your results.
-""",
+        custom_section=SYSTEM_PROMPTS["energy"] + "\nAfter analysis mention @Coordinator.",
     )
-
     agent = Agent.create(
-        adapter=adapter,
-        agent_id=agent_id,
-        api_key=api_key,
-        ws_url=os.getenv("THENVOI_WS_URL"),
-        rest_url=os.getenv("THENVOI_REST_URL"),
+        adapter=adapter, agent_id=agent_id, api_key=api_key,
+        ws_url=os.getenv("THENVOI_WS_URL"), rest_url=os.getenv("THENVOI_REST_URL"),
     )
-
     logger.info("⚡ Energy Agent connected to Band. Listening...")
     await agent.run()
 

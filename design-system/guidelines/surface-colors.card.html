@@ -1,0 +1,48 @@
+<!-- @dsCard group="Colors" viewport="700x120" name="Surface & Text" subtitle="Navy sidebar, white bg, text hierarchy, muted tones" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; background: #fff; font-family: var(--font-sans); padding: 16px; }
+  .row { display: flex; gap: 8px; }
+  .swatch { border-radius: var(--radius-lg); overflow: hidden; flex: 1; }
+  .block { height: 40px; }
+  .info { padding: 6px 8px; font-size: 10px; background: #fafafa; border-top: 1px solid #f1f5f9; }
+  .hex { font-family: var(--font-mono); color: var(--color-text-muted); }
+</style>
+</head>
+<body>
+<div class="row">
+  <div class="swatch" style="border:1px solid #e2e8f0">
+    <div class="block" style="background:var(--color-sidebar)"></div>
+    <div class="info">Sidebar <span class="hex">#0f1623</span></div>
+  </div>
+  <div class="swatch" style="border:1px solid #e2e8f0">
+    <div class="block" style="background:var(--color-bg)"></div>
+    <div class="info">Background <span class="hex">#ffffff</span></div>
+  </div>
+  <div class="swatch" style="border:1px solid #e2e8f0">
+    <div class="block" style="background:var(--color-border)"></div>
+    <div class="info">Border <span class="hex">#e2e8f0</span></div>
+  </div>
+  <div class="swatch" style="border:1px solid #e2e8f0">
+    <div class="block" style="background:var(--color-text-primary)"></div>
+    <div class="info">Text primary <span class="hex">#0f1623</span></div>
+  </div>
+  <div class="swatch" style="border:1px solid #e2e8f0">
+    <div class="block" style="background:var(--color-text-secondary)"></div>
+    <div class="info">Text secondary <span class="hex">#475569</span></div>
+  </div>
+  <div class="swatch" style="border:1px solid #e2e8f0">
+    <div class="block" style="background:var(--color-text-muted)"></div>
+    <div class="info">Text muted <span class="hex">#94a3b8</span></div>
+  </div>
+  <div class="swatch" style="border:1px solid #e2e8f0">
+    <div class="block" style="background:var(--color-purple-accent)"></div>
+    <div class="info">Purple accent <span class="hex">#7c3aed</span></div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!-- @dsCard group="Colors" viewport="700x220" name="Agent Colors" subtitle="5-agent color system — text, bg, border per agent" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; background: #fff; font-family: var(--font-sans); padding: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .swatch { border-radius: var(--radius-lg); overflow: hidden; }
+  .swatch-top { height: 48px; display: flex; align-items: center; justify-content: center; }
+  .swatch-top i { font-size: 18px; }
+  .swatch-body { padding: 8px 10px; border-top: 1px solid rgba(0,0,0,0.06); }
+  .swatch-name { font-size: 11px; font-weight: 500; margin-bottom: 2px; }
+  .swatch-hex { font-size: 10px; color: var(--color-text-muted); font-family: var(--font-mono); }
+  .border-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+</head>
+<body>
+<div class="grid">
+  <div class="swatch" style="border:1px solid var(--color-farmer-border)">
+    <div class="swatch-top" style="background:var(--color-farmer-bg)"><i class="ti ti-wheat" style="color:var(--color-farmer-text)"></i></div>
+    <div class="swatch-body">
+      <div class="swatch-name" style="color:var(--color-farmer-text)">Farmer</div>
+      <div class="swatch-hex">#0F6E56 / #E1F5EE</div>
+    </div>
+  </div>
+  <div class="swatch" style="border:1px solid var(--color-logistics-border)">
+    <div class="swatch-top" style="background:var(--color-logistics-bg)"><i class="ti ti-truck" style="color:var(--color-logistics-text)"></i></div>
+    <div class="swatch-body">
+      <div class="swatch-name" style="color:var(--color-logistics-text)">Logistics</div>
+      <div class="swatch-hex">#085041 / #C8EDE0</div>
+    </div>
+  </div>
+  <div class="swatch" style="border:1px solid var(--color-energy-border)">
+    <div class="swatch-top" style="background:var(--color-energy-bg)"><i class="ti ti-bolt" style="color:var(--color-energy-text)"></i></div>
+    <div class="swatch-body">
+      <div class="swatch-name" style="color:var(--color-energy-text)">Energy</div>
+      <div class="swatch-hex">#633806 / #FAEEDA</div>
+    </div>
+  </div>
+  <div class="swatch" style="border:1px solid var(--color-market-border)">
+    <div class="swatch-top" style="background:var(--color-market-bg)"><i class="ti ti-trending-up" style="color:var(--color-market-text)"></i></div>
+    <div class="swatch-body">
+      <div class="swatch-name" style="color:var(--color-market-text)">Market</div>
+      <div class="swatch-hex">#712B13 / #FAECE7</div>
+    </div>
+  </div>
+  <div class="swatch" style="border:1px solid var(--color-regulator-border)">
+    <div class="swatch-top" style="background:var(--color-regulator-bg)"><i class="ti ti-building-bank" style="color:var(--color-regulator-text)"></i></div>
+    <div class="swatch-body">
+      <div class="swatch-name" style="color:var(--color-regulator-text)">Regulator</div>
+      <div class="swatch-hex">#3C3489 / #EEEDFE</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

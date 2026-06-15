@@ -1,0 +1,7 @@
+/* ── CrisisNet Design System — root stylesheet ────────────────────────────── */
+/* Import order: tokens → components → global resets                          */
+/* Consumers link this ONE file only.                                          */
+
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';

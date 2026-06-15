@@ -1,0 +1,482 @@
+<!-- @dsCard group="Dashboard" viewport="1440x900" name="FoodEnergyMAS Dashboard" subtitle="Multi-agent food & energy security — live pipeline view" -->
+<!-- @startingPoint section="Dashboard" subtitle="Multi-agent food & energy security assessment" viewport="1440x900" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FoodEnergyMAS — Security Assessment</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  @keyframes badge-spin        { to { transform: rotate(360deg); } }
+  @keyframes fade-in           { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+  @keyframes phase-pulse       { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
+  @keyframes progress-run      { 0%{transform:translateX(-100%)} 100%{transform:translateX(500%)} }
+  @keyframes border-pulse-farmer    { 0%,100%{border-color:#e2e8f0} 50%{border-color:#6DCFB0} }
+  @keyframes border-pulse-logistics { 0%,100%{border-color:#e2e8f0} 50%{border-color:#4DB896} }
+  @keyframes border-pulse-energy    { 0%,100%{border-color:#e2e8f0} 50%{border-color:#FAC775} }
+  @keyframes border-pulse-market    { 0%,100%{border-color:#e2e8f0} 50%{border-color:#F5C4B3} }
+  @keyframes border-pulse-regulator { 0%,100%{border-color:#e2e8f0} 50%{border-color:#AFA9EC} }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #fff; color: #0f1623; }
+  textarea, input, button { font-family: inherit; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ─── Constants ────────────────────────────────────────────────────────────── */
+const AGENT_META = {
+  farmer:    { label:'Farmer',    color:'#0F6E56', bg:'#E1F5EE', border:'#6DCFB0', icon:'ti-wheat',         model:'Mixtral-8x7B-Instruct' },
+  logistics: { label:'Logistics', color:'#085041', bg:'#C8EDE0', border:'#4DB896', icon:'ti-truck',         model:'Llama-3.3-70B-Instruct' },
+  energy:    { label:'Energy',    color:'#633806', bg:'#FAEEDA', border:'#FAC775', icon:'ti-bolt',          model:'Llama-3.3-70B-Instruct' },
+  market:    { label:'Market',    color:'#712B13', bg:'#FAECE7', border:'#F5C4B3', icon:'ti-trending-up',   model:'Qwen2.5-72B-Instruct' },
+  regulator: { label:'Regulator', color:'#3C3489', bg:'#EEEDFE', border:'#AFA9EC', icon:'ti-building-bank', model:'Llama-3.1-405B-Instruct' },
+};
+
+const PHASE_DEFS = [
+  { n:1, sidebar:'Farmer + Energy',     label:'Farmer+Energy',    agents:['farmer','energy'] },
+  { n:2, sidebar:'Logistics + Market',  label:'Logistics+Market', agents:['logistics','market'] },
+  { n:3, sidebar:'Conflict detection',  label:'Conflicts',        agents:[] },
+  { n:4, sidebar:'Regulator decision',  label:'Regulator',        agents:['regulator'] },
+  { n:5, sidebar:'Complete',            label:'Complete',          agents:[] },
+];
+
+const SCENARIOS = [
+  'Regional drought assessment — North Africa grain belt, Q3 2026',
+  'Post-flood logistics disruption — Lower Mekong Delta corridor',
+  'Energy price spike and its cascading impact on grain production',
+  'Emergency food import authorization — 180,000 MT wheat deficit',
+];
+
+const RISK_COLOR = { low:'#38a169', medium:'#dd6b20', high:'#e53e3e', critical:'#e53e3e' };
+const riskLevel = s => s >= 0.7 ? 'high' : s >= 0.4 ? 'medium' : 'low';
+
+/* ─── Mock simulation ──────────────────────────────────────────────────────── */
+const mkMock = scenario => [
+  { ms:700,   d:{ event:'pipeline_start', scenario } },
+  { ms:1200,  d:{ event:'phase', phase:1, label:'Independent agents' } },
+  { ms:2900,  d:{ event:'agent_done', agent:'farmer',    data:{ deficit_pct:34.2, climate_risk_score:0.78, deficit_regions:['North Plains','Eastern Province'], risk_flags:['drought_risk','frost_risk'], rag_sources:['hist_harvest_2019','climate_risk_q2'] } } },
+  { ms:3700,  d:{ event:'agent_done', agent:'energy',    data:{ energy_price_usd_kwh:0.187, energy_price_trend:'rising', grid_load_pct:87.3, shortage_alert:'warning', renewable_share_pct:24.1, energy_risk_score:0.69, impact_on_food_production:'Elevated grid load constrains irrigation pumps during peak hours.' } } },
+  { ms:4300,  d:{ event:'phase', phase:2, label:'Dependent agents' } },
+  { ms:6100,  d:{ event:'agent_done', agent:'logistics', data:{ loss_estimate_pct:12.4, logistics_risk_score:0.61, bottlenecks:['port_odessa'], storage_capacity_available_tons:45000 } } },
+  { ms:7100,  d:{ event:'agent_done', agent:'market',    data:{ demand_signal:'high', demand_trend:'increasing', stock_level_days:18.5, inflation_risk:'high', market_risk_score:0.74, speculation_detected:true } } },
+  { ms:7700,  d:{ event:'phase', phase:3, label:'Band Room — conflict detection' } },
+  { ms:8800,  d:{ event:'band_room_conflicts', conflicts:['Market recommends price cuts while farmer signals supply deficit — contradictory signals on wheat pricing strategy','Logistics bottleneck at port_odessa conflicts with market demand signal "high" — supply chain cannot meet stated demand levels'], count:2 } },
+  { ms:9400,  d:{ event:'phase', phase:4, label:'Regulator making decision' } },
+  { ms:12000, d:{ event:'agent_done', agent:'regulator', data:{ policy_recommendation:'Emergency import authorized.', confidence_score:0.66, escalate_to_human:true, import_trigger:true, price_controls:true, emergency_reserves_release:true } } },
+  { ms:12400, d:{ event:'phase', phase:5, label:'Complete' } },
+  { ms:12800, d:{ event:'pipeline_complete', final_decision:'Immediate emergency grain import of 180,000 MT to offset North Plains deficit. Implement temporary price controls on wheat and bread products for 90 days. Release 15% of strategic energy reserves to support agricultural operations. Activate regional food distribution hubs in Eastern Province.', escalate_to_human:true, escalation_reason:'Regional deficit at 34.2% exceeds the 30% escalation threshold. Confidence score of 0.66 is below minimum 0.70, driven by unresolved market-farmer price trajectory conflict.', confidence_score:0.66, import_trigger:true, price_controls:true, emergency_reserves:true, subsidy_plan:[{ target:'wheat_farmers', amount_usd_million:45.0, duration_months:6, rationale:'Offset climate-driven yield losses in North Plains' },{ target:'fuel_subsidies', amount_usd_million:28.5, duration_months:3, rationale:'Reduce irrigation cost burden on smallholders' }], conflicts:['Market vs farmer price signal conflict','Logistics bottleneck vs high demand signal'], session_id:'ses_demo_'+Date.now().toString(36), report_url:'http://localhost:8000/report/ses_demo' } },
+];
+
+/* ─── Agent metric helpers ─────────────────────────────────────────────────── */
+const agentMetrics = (agent, d) => {
+  if (!d) return [];
+  const fmt = (v, suffix='') => v != null ? `${typeof v==='number' ? v % 1 ? v.toFixed(2) : v : v}${suffix}` : '—';
+  switch (agent) {
+    case 'farmer':    return [{ i:'ti-alert-triangle', l:'Max deficit',   v:fmt(d.deficit_pct,'%') },{ i:'ti-cloud-rain', l:'Climate risk', v:fmt(d.climate_risk_score) },{ i:'ti-map-pin', l:'Deficit regions', v:(d.deficit_regions||[]).slice(0,2).join(', ')||'—' }];
+    case 'logistics': return [{ i:'ti-package', l:'Chain loss', v:fmt(d.loss_estimate_pct,'%') },{ i:'ti-alert-triangle', l:'Bottleneck', v:(d.bottlenecks||[]).slice(0,1)[0]||'None' },{ i:'ti-database', l:'Storage avail.', v:d.storage_capacity_available_tons ? `${(d.storage_capacity_available_tons/1000).toFixed(0)}k t` : '—' }];
+    case 'energy':    return [{ i:'ti-currency-dollar', l:'Price / kWh', v:`$${fmt(d.energy_price_usd_kwh)}` },{ i:'ti-activity', l:'Grid load', v:fmt(d.grid_load_pct,'%') },{ i:'ti-alert-triangle', l:'Alert', v:d.shortage_alert||'none' }];
+    case 'market':    return [{ i:'ti-trending-up', l:'Demand signal', v:d.demand_signal||'—' },{ i:'ti-calendar', l:'Stock days', v:fmt(d.stock_level_days,' d') },{ i:'ti-chart-line', l:'Inflation risk', v:d.inflation_risk||'—' }];
+    case 'regulator': return [{ i:'ti-gauge', l:'Confidence', v:`${Math.round((d.confidence_score||0)*100)}%` },{ i:'ti-ship', l:'Import trigger', v:d.import_trigger?'Yes':'No' },{ i:'ti-user-exclamation', l:'Escalated', v:d.escalate_to_human?'Yes':'No' }];
+    default: return [];
+  }
+};
+
+const agentRiskScore = (agent, d) => {
+  if (!d) return 0;
+  return d.climate_risk_score || d.logistics_risk_score || d.energy_risk_score || d.market_risk_score || d.confidence_score || 0;
+};
+
+/* ─── Sidebar ───────────────────────────────────────────────────────────────── */
+function Sidebar({ currentPhase, agentStates }) {
+  return React.createElement('div', { style:{ width:240, minWidth:240, background:'#0f1623', display:'flex', flexDirection:'column', height:'100vh', position:'sticky', top:0 } },
+    React.createElement('div', { style:{ padding:'20px 16px 12px' } },
+      React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:8, marginBottom:3 } },
+        React.createElement('i', { className:'ti ti-leaf', style:{ fontSize:16, color:'#6DCFB0' } }),
+        React.createElement('span', { style:{ fontSize:15, fontWeight:500, color:'#f8fafc' } }, 'FoodEnergyMAS')
+      ),
+      React.createElement('div', { style:{ fontSize:11, color:'#475569', paddingLeft:24 } }, 'Food & Energy Security')
+    ),
+    React.createElement('div', { style:{ height:1, background:'#1e2d42', margin:'0 16px 8px' } }),
+    React.createElement('div', { style:{ fontSize:10, fontWeight:500, color:'#334155', letterSpacing:'0.07em', textTransform:'uppercase', padding:'8px 16px 6px' } }, 'Pipeline'),
+    ...PHASE_DEFS.map(p =>
+      React.createElement('div', { key:p.n, style:{ display:'flex', alignItems:'center', gap:10, padding:'6px 16px', borderLeft:`2px solid ${currentPhase===p.n?'#7c3aed':'transparent'}`, background:currentPhase===p.n?'rgba(124,58,237,0.08)':'transparent' } },
+        React.createElement('span', { style:{ fontSize:10, fontFamily:"'JetBrains Mono',monospace", color:currentPhase===p.n?'#a78bfa':'#334155', minWidth:16 } }, `0${p.n}`),
+        React.createElement('span', { style:{ fontSize:12, color:currentPhase===p.n?'#e2e8f0':'#475569' } }, p.sidebar)
+      )
+    ),
+    React.createElement('div', { style:{ height:1, background:'#1e2d42', margin:'8px 16px' } }),
+    React.createElement('div', { style:{ fontSize:10, fontWeight:500, color:'#334155', letterSpacing:'0.07em', textTransform:'uppercase', padding:'4px 16px 6px' } }, 'Agents'),
+    ...Object.entries(AGENT_META).map(([key, m]) => {
+      const s = agentStates[key];
+      const dot = s.status==='done'?'#22c55e':s.status==='analyzing'?'#f59e0b':'#1e2d42';
+      return React.createElement('div', { key, style:{ display:'flex', alignItems:'center', gap:10, padding:'5px 16px' } },
+        React.createElement('i', { className:`ti ${m.icon}`, style:{ fontSize:12, color:m.color, width:14, textAlign:'center' } }),
+        React.createElement('span', { style:{ fontSize:12, color:'#94a3b8', flex:1 } }, m.label),
+        React.createElement('div', { style:{ width:7, height:7, borderRadius:'50%', background:dot, flexShrink:0 } })
+      );
+    }),
+    React.createElement('div', { style:{ marginTop:'auto', borderTop:'1px solid #1e2d42', padding:'10px 16px' } },
+      React.createElement('div', { style:{ fontSize:10, color:'#334155', lineHeight:1.7 } }, 'Powered by Band · Featherless AI · ChromaDB')
+    )
+  );
+}
+
+/* ─── Phase stepper ─────────────────────────────────────────────────────────── */
+function PhaseStepper({ currentPhase }) {
+  return React.createElement('div', { style:{ display:'flex', alignItems:'flex-start', marginBottom:20 } },
+    PHASE_DEFS.map((p, i) => {
+      const done = currentPhase > p.n, active = currentPhase === p.n, pending = currentPhase < p.n;
+      return React.createElement('div', { key:p.n, style:{ display:'flex', alignItems:'center', flex:i<4?1:'none' } },
+        React.createElement('div', { style:{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 } },
+          React.createElement('div', { style:{ width:20, height:20, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:500, background:done?'#0f1623':active?'#7c3aed':'transparent', border:pending?'1.5px solid #cbd5e1':'none', color:done||active?'#fff':'#94a3b8', flexShrink:0, animation:active?'phase-pulse 1.6s ease-in-out infinite':undefined } },
+            done ? React.createElement('i', { className:'ti ti-check', style:{ fontSize:9 } }) : p.n
+          ),
+          React.createElement('div', { style:{ fontSize:10, color:active?'#7c3aed':'#94a3b8', whiteSpace:'nowrap', fontWeight:active?500:400 } }, p.label)
+        ),
+        i < 4 && React.createElement('div', { style:{ flex:1, height:1, background:done?'#0f1623':'#e2e8f0', margin:'0 6px', marginBottom:16, transition:'background 0.4s' } })
+      );
+    })
+  );
+}
+
+/* ─── Agent card ────────────────────────────────────────────────────────────── */
+function AgentCard({ agent, state, onInspect }) {
+  const m = AGENT_META[agent];
+  const { status, data } = state;
+  const done = status==='done', running = status==='analyzing', waiting = status==='waiting';
+  const metrics = done ? agentMetrics(agent, data) : [];
+  const rs = agentRiskScore(agent, data);
+  const rl = riskLevel(rs);
+
+  const borderColor = running ? m.border : done ? m.border : '#e2e8f0';
+  const pulseAnim = running ? `border-pulse-${agent} 2s ease-in-out infinite` : undefined;
+
+  return React.createElement('div', {
+    onClick: done ? onInspect : undefined,
+    style:{ background:'#fff', borderRadius:8, padding:'14px 16px', border:`1px solid ${borderColor}`, opacity:waiting?0.38:1, transition:'opacity 0.4s, border-color 0.2s', cursor:done?'pointer':'default', gridColumn:agent==='regulator'?'1 / -1':undefined, animation:pulseAnim }
+  },
+    React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:10, marginBottom: done&&metrics.length ? 10 : 8 } },
+      React.createElement('div', { style:{ width:28, height:28, borderRadius:'50%', background:m.bg, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 } },
+        React.createElement('i', { className:`ti ${m.icon}`, style:{ fontSize:13, color:m.color } })
+      ),
+      React.createElement('div', { style:{ flex:1, minWidth:0 } },
+        React.createElement('div', { style:{ fontSize:13, fontWeight:500, color:m.color } }, m.label),
+        React.createElement('div', { style:{ fontSize:10, color:'#94a3b8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' } }, m.model)
+      ),
+      React.createElement('span', { style:{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 8px', borderRadius:4, fontSize:10, fontWeight:500, background:running?'#fef3c7':done?'#f0fdf4':'#f1f5f9', color:running?'#92400e':done?'#15803d':'#64748b', flexShrink:0 } },
+        running && React.createElement('span', { style:{ width:8, height:8, borderRadius:'50%', border:'1.5px solid currentColor', borderTopColor:'transparent', display:'inline-block', animation:'badge-spin 0.7s linear infinite' } }),
+        status
+      )
+    ),
+    done && metrics.length > 0 && React.createElement('div', { style:{ display:'flex', flexDirection:'column', gap:4, marginBottom:10, animation:'fade-in 0.35s ease' } },
+      metrics.map((met,i) =>
+        React.createElement('div', { key:i, style:{ display:'flex', alignItems:'center', gap:8 } },
+          React.createElement('i', { className:`ti ${met.i}`, style:{ fontSize:11, color:'#94a3b8', width:14, textAlign:'center' } }),
+          React.createElement('span', { style:{ fontSize:11, color:'#475569', flex:1 } }, met.l),
+          React.createElement('span', { style:{ fontSize:11, fontWeight:500, color:'#0f1623' } }, met.v)
+        )
+      )
+    ),
+    React.createElement('div', { style:{ height:4, background:'#f1f5f9', borderRadius:2, overflow:'hidden' } },
+      React.createElement('div', { style:{ height:'100%', width:done?`${Math.round(rs*100)}%`:'0%', background:RISK_COLOR[rl], transition:'width 0.7s ease', borderRadius:2 } })
+    )
+  );
+}
+
+/* ─── Conflict panel ────────────────────────────────────────────────────────── */
+function ConflictPanel({ conflicts }) {
+  if (!conflicts.length) return null;
+  return React.createElement('div', { style:{ background:'#fffbeb', border:'1px solid #f59e0b', borderRadius:8, padding:'14px 16px', marginBottom:16, animation:'fade-in 0.3s ease' } },
+    React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:8, marginBottom:8 } },
+      React.createElement('i', { className:'ti ti-alert-triangle', style:{ fontSize:14, color:'#f59e0b' } }),
+      React.createElement('span', { style:{ fontSize:13, fontWeight:500, color:'#92400e' } }, `${conflicts.length} conflict${conflicts.length>1?'s':''} detected by coordinator`)
+    ),
+    React.createElement('div', { style:{ display:'flex', flexDirection:'column', gap:5 } },
+      conflicts.map((c,i) =>
+        React.createElement('div', { key:i, style:{ display:'flex', gap:8 } },
+          React.createElement('span', { style:{ color:'#d97706', fontSize:12, flexShrink:0, marginTop:1 } }, '·'),
+          React.createElement('span', { style:{ fontSize:12, color:'#78350f', lineHeight:1.6 } }, c)
+        )
+      )
+    )
+  );
+}
+
+/* ─── Confidence gauge (SVG) ────────────────────────────────────────────────── */
+function ConfGauge({ score }) {
+  const pct = Math.round((score||0)*100);
+  const r=16, circ=2*Math.PI*r;
+  return React.createElement('div', { style:{ position:'relative', width:44, height:44, flexShrink:0 } },
+    React.createElement('svg', { width:44, height:44, viewBox:'0 0 40 40' },
+      React.createElement('circle', { cx:20, cy:20, r, fill:'none', stroke:'#e2e8f0', strokeWidth:3 }),
+      React.createElement('circle', { cx:20, cy:20, r, fill:'none', stroke:score>=0.7?'#22c55e':'#f59e0b', strokeWidth:3, strokeDasharray:`${circ*(pct/100)} ${circ}`, strokeLinecap:'round', transform:'rotate(-90 20 20)', style:{ transition:'stroke-dasharray 0.6s ease' } })
+    ),
+    React.createElement('div', { style:{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:500 } }, `${pct}%`)
+  );
+}
+
+/* ─── Action chip ───────────────────────────────────────────────────────────── */
+function ActionChip({ label, icon, active }) {
+  return React.createElement('div', { style:{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:4, border:`1px solid ${active?'#86efac':'#e2e8f0'}`, background:active?'#f0fdf4':'#fafafa', fontSize:11, color:active?'#15803d':'#94a3b8', fontWeight:500 } },
+    React.createElement('i', { className:`ti ${icon}`, style:{ fontSize:11 } }),
+    label
+  );
+}
+
+/* ─── Final decision card ───────────────────────────────────────────────────── */
+function FinalDecision({ decision }) {
+  const [showJSON, setShowJSON] = useState(false);
+  if (!decision) return null;
+  const esc = decision.escalate_to_human;
+  return React.createElement('div', { style:{ borderRadius:8, padding:'14px 16px', marginBottom:16, background:esc?'#fffbeb':'#f0fdf4', border:`1px solid ${esc?'#f59e0b':'#86efac'}`, borderLeft:`3px solid ${esc?'#f59e0b':'#22c55e'}`, animation:'fade-in 0.4s ease' } },
+    React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:10, marginBottom:12 } },
+      React.createElement('i', { className:`ti ${esc?'ti-alert-triangle':'ti-check'}`, style:{ fontSize:16, color:esc?'#f59e0b':'#22c55e' } }),
+      React.createElement('span', { style:{ fontSize:13, fontWeight:500, color:esc?'#92400e':'#15803d', flex:1 } }, esc?'Human decision required':'Final policy decision'),
+      React.createElement(ConfGauge, { score:decision.confidence_score })
+    ),
+    esc && decision.escalation_reason && React.createElement('div', { style:{ background:'#fef3c7', border:'1px solid #fde68a', borderRadius:6, padding:'8px 12px', marginBottom:12, fontSize:12, color:'#78350f', lineHeight:1.6 } }, decision.escalation_reason),
+    React.createElement('div', { style:{ fontSize:13, lineHeight:1.7, color:'#0f1623', marginBottom:12 } }, decision.final_decision),
+    React.createElement('div', { style:{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 } },
+      React.createElement(ActionChip, { label:'Emergency import', icon:'ti-ship', active:!!decision.import_trigger }),
+      React.createElement(ActionChip, { label:'Price controls',   icon:'ti-tag',  active:!!decision.price_controls }),
+      React.createElement(ActionChip, { label:'Energy reserves',  icon:'ti-bolt', active:!!decision.emergency_reserves }),
+    ),
+    decision.subsidy_plan?.length > 0 && React.createElement('div', { style:{ marginBottom:12 } },
+      React.createElement('div', { style:{ fontSize:10, color:'#94a3b8', fontWeight:500, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 } }, 'Subsidy plan'),
+      React.createElement('table', { style:{ width:'100%', borderCollapse:'collapse', fontSize:12 } },
+        React.createElement('thead', null,
+          React.createElement('tr', null, ['Target','Amount','Duration','Rationale'].map(h =>
+            React.createElement('th', { key:h, style:{ textAlign:'left', padding:'4px 8px', fontSize:10, fontWeight:500, color:'#94a3b8', borderBottom:'1px solid #e2e8f0' } }, h)
+          ))
+        ),
+        React.createElement('tbody', null,
+          decision.subsidy_plan.map((s,i) =>
+            React.createElement('tr', { key:i },
+              React.createElement('td', { style:{ padding:'5px 8px', borderBottom:'1px solid #f1f5f9', color:'#0f1623' } }, s.target),
+              React.createElement('td', { style:{ padding:'5px 8px', borderBottom:'1px solid #f1f5f9', color:'#0f1623', whiteSpace:'nowrap' } }, `$${s.amount_usd_million}M`),
+              React.createElement('td', { style:{ padding:'5px 8px', borderBottom:'1px solid #f1f5f9', color:'#0f1623', whiteSpace:'nowrap' } }, `${s.duration_months} mo`),
+              React.createElement('td', { style:{ padding:'5px 8px', borderBottom:'1px solid #f1f5f9', color:'#475569', fontSize:11 } }, s.rationale)
+            )
+          )
+        )
+      )
+    ),
+    React.createElement('div', { style:{ display:'flex', gap:8, alignItems:'center' } },
+      decision.report_url && React.createElement('a', { href:decision.report_url, target:'_blank', style:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', background:'#0f1623', color:'#fff', fontSize:12, fontWeight:500, borderRadius:6, textDecoration:'none' } },
+        React.createElement('i', { className:'ti ti-download', style:{ fontSize:12 } }),
+        'Download report'
+      ),
+      React.createElement('button', { onClick:()=>setShowJSON(v=>!v), style:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', background:'transparent', color:'#64748b', fontSize:12, fontWeight:500, borderRadius:6, border:'1px solid #e2e8f0', cursor:'pointer' } },
+        React.createElement('i', { className:'ti ti-code', style:{ fontSize:12 } }),
+        showJSON?'Hide JSON':'View JSON'
+      )
+    ),
+    showJSON && React.createElement('div', { style:{ marginTop:12, background:'#0f1623', borderRadius:6, padding:12, overflow:'auto', maxHeight:260 } },
+      React.createElement('pre', { style:{ fontSize:11, color:'#a78bfa', fontFamily:"'JetBrains Mono',monospace", lineHeight:1.6, whiteSpace:'pre-wrap', wordBreak:'break-all' } }, JSON.stringify(decision, null, 2))
+    )
+  );
+}
+
+/* ─── Band Room terminal ────────────────────────────────────────────────────── */
+function BandRoom({ log, termRef }) {
+  return React.createElement('div', { style:{ background:'#0f1623', borderRadius:8, padding:'12px 16px', height:200, display:'flex', flexDirection:'column' } },
+    React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:8, marginBottom:10, flexShrink:0 } },
+      React.createElement('span', { style:{ fontSize:10, fontFamily:"'JetBrains Mono',monospace", color:'#475569', letterSpacing:'0.1em' } }, 'BAND ROOM'),
+      log.length > 0 && React.createElement('div', { style:{ width:6, height:6, borderRadius:'50%', background:'#22c55e' } })
+    ),
+    React.createElement('div', { ref:termRef, style:{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:2 } },
+      log.length === 0
+        ? React.createElement('div', { style:{ fontSize:11, color:'#334155', fontFamily:"'JetBrains Mono',monospace" } }, 'Waiting for pipeline start…')
+        : log.map((e,i) =>
+            React.createElement('div', { key:i, style:{ fontSize:11.5, fontFamily:"'JetBrains Mono',monospace", color:e.col, lineHeight:1.5, animation:'fade-in 0.2s ease' } },
+              React.createElement('span', { style:{ color:'#334155', marginRight:10 } }, e.ts),
+              e.txt
+            )
+          )
+    )
+  );
+}
+
+/* ─── Slide-in panel ────────────────────────────────────────────────────────── */
+function SlideIn({ agent, data, onClose }) {
+  const m = agent ? AGENT_META[agent] : null;
+  return React.createElement(React.Fragment, null,
+    agent && React.createElement('div', { onClick:onClose, style:{ position:'fixed', inset:0, zIndex:99 } }),
+    React.createElement('div', { style:{ position:'fixed', top:0, right:0, bottom:0, width:320, background:'#fff', borderLeft:'1px solid #e2e8f0', zIndex:100, transform:agent?'translateX(0)':'translateX(100%)', transition:'transform 0.25s ease', display:'flex', flexDirection:'column' } },
+      React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:10, padding:'14px 16px', borderBottom:'1px solid #e2e8f0', flexShrink:0 } },
+        m && React.createElement('div', { style:{ width:24, height:24, borderRadius:'50%', background:m.bg, display:'flex', alignItems:'center', justifyContent:'center' } },
+          React.createElement('i', { className:`ti ${m.icon}`, style:{ fontSize:12, color:m.color } })
+        ),
+        React.createElement('span', { style:{ fontSize:13, fontWeight:500, flex:1 } }, m ? `${m.label} payload` : 'Payload'),
+        React.createElement('button', { onClick:onClose, style:{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', padding:4, display:'flex' } },
+          React.createElement('i', { className:'ti ti-x', style:{ fontSize:16 } })
+        )
+      ),
+      React.createElement('div', { style:{ flex:1, overflowY:'auto', padding:16 } },
+        React.createElement('pre', { style:{ fontSize:11.5, fontFamily:"'JetBrains Mono',monospace", lineHeight:1.6, color:'#334155', whiteSpace:'pre-wrap', wordBreak:'break-word' } },
+          data ? JSON.stringify(data, null, 2) : ''
+        )
+      )
+    )
+  );
+}
+
+/* ─── Dashboard (main) ──────────────────────────────────────────────────────── */
+function Dashboard() {
+  const [scenario,      setScenario]      = useState(SCENARIOS[0]);
+  const [pipelineState, setPipelineState] = useState('idle');
+  const [currentPhase,  setCurrentPhase]  = useState(0);
+  const initAgents = () => Object.fromEntries(Object.keys(AGENT_META).map(k => [k, { status:'waiting', data:null }]));
+  const [agentStates,   setAgentStates]   = useState(initAgents);
+  const [conflicts,     setConflicts]     = useState([]);
+  const [finalDecision, setFinalDecision] = useState(null);
+  const [bandLog,       setBandLog]       = useState([]);
+  const [panelAgent,    setPanelAgent]    = useState(null);
+  const [panelData,     setPanelData]     = useState(null);
+
+  const wsRef       = useRef(null);
+  const timersRef   = useRef([]);
+  const termRef     = useRef(null);
+
+  const addLog = useCallback((txt, col) => {
+    const ts = new Date().toISOString().substring(11,19);
+    setBandLog(prev => [...prev, { ts, txt, col }]);
+    requestAnimationFrame(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; });
+  }, []);
+
+  const handleEvent = useCallback((evt) => {
+    switch (evt.event) {
+      case 'pipeline_start':
+        addLog(`pipeline_start   scenario="${(evt.scenario||'').slice(0,52)}…"`, '#64748b'); break;
+      case 'phase':
+        setCurrentPhase(evt.phase);
+        const pa = PHASE_DEFS.find(p => p.n===evt.phase)?.agents || [];
+        setAgentStates(prev => { const n={...prev}; pa.forEach(a=>{ if(n[a]) n[a]={...n[a],status:'analyzing'}; }); return n; });
+        addLog(`phase            phase=${evt.phase}  label="${evt.label}"`, '#a78bfa'); break;
+      case 'agent_done':
+        setAgentStates(prev => ({ ...prev, [evt.agent]:{ status:'done', data:evt.data } }));
+        addLog(`agent_done       agent=${evt.agent}`, AGENT_META[evt.agent]?.border||'#94a3b8'); break;
+      case 'band_room_conflicts':
+        setConflicts(evt.conflicts||[]);
+        addLog(`band_room_conflicts   count=${evt.count}`, evt.count>0?'#fbbf24':'#64748b'); break;
+      case 'pipeline_complete':
+        setPipelineState('complete');
+        setCurrentPhase(5);
+        setFinalDecision(evt);
+        addLog(`pipeline_complete   confidence=${evt.confidence_score?.toFixed(2)}  escalate=${evt.escalate_to_human}`, '#68d391'); break;
+      case 'error':
+        addLog(`error   ${evt.message}`, '#fc8181');
+        setPipelineState('idle'); break;
+    }
+  }, [addLog]);
+
+  const reset = () => { setCurrentPhase(0); setAgentStates(initAgents()); setConflicts([]); setFinalDecision(null); setBandLog([]); };
+
+  const simulate = useCallback((scen) => {
+    mkMock(scen).forEach(({ ms, d }) => {
+      const t = setTimeout(() => handleEvent(d), ms);
+      timersRef.current.push(t);
+    });
+  }, [handleEvent]);
+
+  const handleRun = () => {
+    reset();
+    setPipelineState('running');
+    timersRef.current.forEach(clearTimeout); timersRef.current = [];
+    try {
+      const ws = new WebSocket('ws://localhost:8000/ws');
+      wsRef.current = ws;
+      ws.onopen  = () => ws.send(JSON.stringify({ scenario }));
+      ws.onmessage = e => { try { handleEvent(JSON.parse(e.data)); } catch {} };
+      ws.onerror = () => { ws.close(); simulate(scenario); };
+      ws.onclose = () => { wsRef.current = null; };
+    } catch { simulate(scenario); }
+  };
+
+  const handleStop = () => {
+    timersRef.current.forEach(clearTimeout); timersRef.current = [];
+    if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+    setPipelineState('idle'); reset();
+  };
+
+  const running  = pipelineState === 'running';
+  const complete = pipelineState === 'complete';
+
+  return React.createElement('div', { style:{ display:'flex', height:'100vh', overflow:'hidden' } },
+    React.createElement(Sidebar, { currentPhase, agentStates }),
+
+    React.createElement('div', { style:{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' } },
+      /* Progress bar strip */
+      React.createElement('div', { style:{ height:1, background:'#f1f5f9', position:'relative', overflow:'hidden', flexShrink:0 } },
+        running && React.createElement('div', { style:{ position:'absolute', top:0, height:'100%', width:'20%', background:'#7c3aed', animation:'progress-run 1.8s ease-in-out infinite' } }),
+        complete && React.createElement('div', { style:{ position:'absolute', inset:0, background:'#7c3aed' } })
+      ),
+
+      /* Scrollable content */
+      React.createElement('div', { style:{ flex:1, overflowY:'auto', padding:24 } },
+
+        /* Top bar */
+        React.createElement('div', { style:{ display:'flex', alignItems:'center', marginBottom:20 } },
+          React.createElement('h1', { style:{ fontSize:20, fontWeight:500, flex:1 } }, 'Security Assessment'),
+          React.createElement('button', {
+            onClick: running ? handleStop : handleRun,
+            style:{ display:'inline-flex', alignItems:'center', gap:6, padding:'7px 16px', borderRadius:6, fontSize:13, fontWeight:500, cursor:'pointer', background:running?'transparent':'#0f1623', color:running?'#e53e3e':'#fff', border:`1px solid ${running?'#e53e3e':'#0f1623'}` }
+          },
+            React.createElement('i', { className:`ti ${running?'ti-player-stop':'ti-player-play'}`, style:{ fontSize:13 } }),
+            running ? 'Stop' : 'Run Pipeline'
+          )
+        ),
+
+        /* Scenario input */
+        React.createElement('div', { style:{ border:'1px solid #e2e8f0', borderRadius:8, padding:16, marginBottom:20 } },
+          React.createElement('div', { style:{ fontSize:11, fontWeight:500, color:'#94a3b8', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:8 } }, 'Scenario'),
+          React.createElement('textarea', { value:scenario, onChange:e=>setScenario(e.target.value), rows:3, style:{ width:'100%', resize:'none', border:'1px solid #e2e8f0', borderRadius:6, padding:'8px 10px', fontSize:13, color:'#0f1623', lineHeight:1.6, outline:'none' } }),
+          React.createElement('div', { style:{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' } },
+            SCENARIOS.map((s,i) =>
+              React.createElement('button', { key:i, onClick:()=>setScenario(s), style:{ padding:'3px 10px', borderRadius:4, fontSize:11, cursor:'pointer', background:scenario===s?'#0f1623':'#f8fafc', color:scenario===s?'#fff':'#64748b', border:`1px solid ${scenario===s?'#0f1623':'#e2e8f0'}` } }, `Scenario ${i+1}`)
+            )
+          )
+        ),
+
+        /* Phase stepper */
+        React.createElement(PhaseStepper, { currentPhase }),
+
+        /* Agent grid */
+        React.createElement('div', { style:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 } },
+          ['farmer','energy','logistics','market','regulator'].map(a =>
+            React.createElement(AgentCard, { key:a, agent:a, state:agentStates[a], onInspect:()=>{ setPanelAgent(a); setPanelData(agentStates[a].data); } })
+          )
+        ),
+
+        /* Conflict panel */
+        React.createElement(ConflictPanel, { conflicts }),
+
+        /* Final decision */
+        React.createElement(FinalDecision, { decision:finalDecision }),
+
+        /* Band Room */
+        React.createElement(BandRoom, { log:bandLog, termRef })
+      )
+    ),
+
+    /* Slide-in inspector */
+    React.createElement(SlideIn, { agent:panelAgent, data:panelData, onClose:()=>setPanelAgent(null) })
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Dashboard));
+</script>
+</body>
+</html>

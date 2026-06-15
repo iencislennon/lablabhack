@@ -1,0 +1,33 @@
+/* ── CrisisNet / FoodEnergyMAS — Typography Tokens ───────────────────────── */
+/* NOTE: Inter is loaded from Google Fonts at runtime.                       */
+/* Flag: if self-hosting is required, drop Inter ttf files into assets/fonts/ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400&display=swap');
+
+:root {
+  /* ── Font families ─────────────────────────────────────────────────────── */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* ── Font weights (only 2 — enforced by brand) ─────────────────────────── */
+  --font-weight-regular: 400;
+  --font-weight-medium:  500;
+
+  /* ── Size scale ────────────────────────────────────────────────────────── */
+  --text-2xs:  10px;   /* metric labels, legal, powered-by footer */
+  --text-xs:   11px;   /* terminal, subtitles, timestamps */
+  --text-sm:   12px;   /* conflict list, table cells */
+  --text-base: 13px;   /* body, card content, inputs */
+  --text-md:   15px;   /* logo, sidebar section label */
+  --text-lg:   20px;   /* page H1 */
+  --text-xl:   24px;   /* not commonly used — reserved for big numbers */
+
+  /* ── Line heights ──────────────────────────────────────────────────────── */
+  --lh-tight: 1.3; /* @kind other */
+  --lh-base:  1.5; /* @kind other */
+  --lh-body:  1.7; /* @kind other */
+
+  /* ── Letter spacing ────────────────────────────────────────────────────── */
+  --ls-caps:  0.06em;  /* metric label CAPS */
+  --ls-tight: -0.01em;
+}

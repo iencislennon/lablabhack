@@ -1,0 +1,86 @@
+/* ── CrisisNet / FoodEnergyMAS — Color Tokens ─────────────────────────────── */
+
+:root {
+  /* ── Surfaces ──────────────────────────────────────────────────────────── */
+  --color-sidebar:        #0f1623;
+  --color-bg:             #ffffff;
+  --color-border:         #e2e8f0;
+  --color-border-subtle:  #f1f5f9;
+
+  /* ── Text ──────────────────────────────────────────────────────────────── */
+  --color-text-primary:       #0f1623;
+  --color-text-secondary:     #475569;
+  --color-text-muted:         #94a3b8;
+  --color-text-on-dark:       #f8fafc;
+  --color-text-on-dark-muted: #64748b;
+
+  /* ── Interactive / Brand ───────────────────────────────────────────────── */
+  --color-navy:           #0f1623;
+  --color-navy-hover:     #1a2535;
+  --color-purple-accent:  #7c3aed;
+  --color-purple-light:   #a78bfa;
+  --color-purple-dim:     #4c1d95;
+
+  /* ── Agent: Farmer ─────────────────────────────────────────────────────── */
+  --color-farmer-text:    #0F6E56;
+  --color-farmer-bg:      #E1F5EE;
+  --color-farmer-border:  #6DCFB0;
+  --color-farmer-icon:    #0F6E56;
+
+  /* ── Agent: Logistics ──────────────────────────────────────────────────── */
+  --color-logistics-text:   #085041;
+  --color-logistics-bg:     #C8EDE0;
+  --color-logistics-border: #4DB896;
+  --color-logistics-icon:   #085041;
+
+  /* ── Agent: Energy ─────────────────────────────────────────────────────── */
+  --color-energy-text:    #633806;
+  --color-energy-bg:      #FAEEDA;
+  --color-energy-border:  #FAC775;
+  --color-energy-icon:    #633806;
+
+  /* ── Agent: Market ─────────────────────────────────────────────────────── */
+  --color-market-text:    #712B13;
+  --color-market-bg:      #FAECE7;
+  --color-market-border:  #F5C4B3;
+  --color-market-icon:    #712B13;
+
+  /* ── Agent: Regulator ──────────────────────────────────────────────────── */
+  --color-regulator-text:   #3C3489;
+  --color-regulator-bg:     #EEEDFE;
+  --color-regulator-border: #AFA9EC;
+  --color-regulator-icon:   #3C3489;
+
+  /* ── Status: Risk ──────────────────────────────────────────────────────── */
+  --color-risk-high:        #e53e3e;
+  --color-risk-high-bg:     #fff5f5;
+  --color-risk-medium:      #dd6b20;
+  --color-risk-medium-bg:   #fffaf0;
+  --color-risk-low:         #38a169;
+  --color-risk-low-bg:      #f0fff4;
+
+  /* ── Status: Escalation / Warning ─────────────────────────────────────── */
+  --color-escalation:       #f59e0b;
+  --color-escalation-bg:    #fffbeb;
+  --color-escalation-border:#fde68a;
+  --color-escalation-text:  #92400e;
+
+  /* ── Status: Success ───────────────────────────────────────────────────── */
+  --color-success:          #22c55e;
+  --color-success-bg:       #f0fdf4;
+  --color-success-border:   #86efac;
+  --color-success-text:     #15803d;
+
+  /* ── Status: Error ─────────────────────────────────────────────────────── */
+  --color-error:            #ef4444;
+  --color-error-bg:         #fef2f2;
+  --color-error-border:     #fca5a5;
+
+  /* ── Terminal ──────────────────────────────────────────────────────────── */
+  --color-terminal-bg:          #0f1623;
+  --color-terminal-text-gray:   #64748b;
+  --color-terminal-text-purple: #a78bfa;
+  --color-terminal-text-green:  #68d391;
+  --color-terminal-text-amber:  #fbbf24;
+  --color-terminal-text-red:    #fc8181;
+}

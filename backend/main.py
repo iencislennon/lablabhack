@@ -1,16 +1,20 @@
 """
 main.py — FastAPI orchestrator.
 Runs all 5 agents in parallel, coordinates via the Band Room,
-and streams events to the frontend over WebSocket.
+streams events over WebSocket, and generates a Markdown+JSON report.
 """
 
 import asyncio
 import json
 from contextlib import asynccontextmanager
+from pathlib import Path
 from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
 from loguru import logger
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse, FileResponse
 from pydantic import BaseModel
 
 from backend.agents.farmer import FarmerAgent
@@ -19,9 +23,11 @@ from backend.agents.energy import EnergyAgent
 from backend.agents.market import MarketAgent
 from backend.agents.regulator import RegulatorAgent
 from backend.band.coordinator import BandCoordinator
+from backend.report import generate_report
 from backend.schemas import BandRoomState
 
-load_dotenv()
+REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
+REPORTS_DIR.mkdir(exist_ok=True)
 
 # ── WebSocket connection manager ───────────────────────────────────────────────
 
@@ -35,10 +41,10 @@ class ConnectionManager:
         logger.info(f"WS connected ({len(self.active_connections)} total)")
 
     def disconnect(self, ws: WebSocket):
-        self.active_connections.remove(ws)
+        if ws in self.active_connections:
+            self.active_connections.remove(ws)
 
     async def broadcast(self, data: dict):
-        """Send an event to all connected clients."""
         message = json.dumps(data, ensure_ascii=False)
         for connection in self.active_connections:
             try:
@@ -80,31 +86,26 @@ class RunRequest(BaseModel):
     scenario: str = "Analyse current food and energy security conditions"
 
 
-# ── Main pipeline orchestrator ─────────────────────────────────────────────────
+# ── Pipeline ───────────────────────────────────────────────────────────────────
 
 async def run_pipeline(scenario: str, broadcast) -> BandRoomState:
     """
-    Full pipeline:
-    Phase 1 — Parallel: FarmerAgent + EnergyAgent (independent)
-    Phase 2 — Parallel: LogisticsAgent + MarketAgent (depend on Phase 1)
-    Phase 3 — Coordinator: conflict detection
-    Phase 4 — RegulatorAgent: final policy decision
-    Phase 5 — Done: broadcast result and audit trail
+    5-phase pipeline:
+    1. Farmer + Energy in parallel (independent)
+    2. Logistics + Market in parallel (use phase 1 outputs)
+    3. Coordinator conflict detection
+    4. Regulator final decision
+    5. Report generation + broadcast
     """
     coordinator = BandCoordinator()
 
     await broadcast({"event": "pipeline_start", "scenario": scenario})
 
-    # ── Phase 1: independent agents run in parallel ────────────────────────────
-
+    # ── Phase 1 ───────────────────────────────────────────────────────────────
     await broadcast({"event": "phase", "phase": 1, "label": "Independent agents"})
 
-    farmer_agent = FarmerAgent()
-    energy_agent = EnergyAgent()
-
-    farmer_task = asyncio.create_task(farmer_agent.analyze(scenario))
-    energy_task = asyncio.create_task(energy_agent.analyze(scenario))
-
+    farmer_task = asyncio.create_task(FarmerAgent().analyze(scenario))
+    energy_task = asyncio.create_task(EnergyAgent().analyze(scenario))
     farmer_result, energy_result = await asyncio.gather(farmer_task, energy_task)
 
     coordinator.receive("farmer", farmer_result)
@@ -113,20 +114,15 @@ async def run_pipeline(scenario: str, broadcast) -> BandRoomState:
     coordinator.receive("energy", energy_result)
     await broadcast({"event": "agent_done", "agent": "energy", "data": energy_result.model_dump()})
 
-    # ── Phase 2: dependent agents use Phase 1 outputs ─────────────────────────
-
+    # ── Phase 2 ───────────────────────────────────────────────────────────────
     await broadcast({"event": "phase", "phase": 2, "label": "Dependent agents"})
 
-    logistics_agent = LogisticsAgent()
-    market_agent = MarketAgent()
-
     logistics_task = asyncio.create_task(
-        logistics_agent.analyze(scenario, farmer_context=farmer_result.model_dump())
+        LogisticsAgent().analyze(scenario, farmer_context=farmer_result.model_dump())
     )
     market_task = asyncio.create_task(
-        market_agent.analyze(scenario, energy_context=energy_result.model_dump())
+        MarketAgent().analyze(scenario, energy_context=energy_result.model_dump())
     )
-
     logistics_result, market_result = await asyncio.gather(logistics_task, market_task)
 
     coordinator.receive("logistics", logistics_result)
@@ -135,42 +131,48 @@ async def run_pipeline(scenario: str, broadcast) -> BandRoomState:
     coordinator.receive("market", market_result)
     await broadcast({"event": "agent_done", "agent": "market", "data": market_result.model_dump()})
 
-    # ── Phase 3: conflict detection ────────────────────────────────────────────
-
-    await broadcast({"event": "phase", "phase": 3, "label": "Band Room — conflict detection"})
+    # ── Phase 3 ───────────────────────────────────────────────────────────────
+    await broadcast({"event": "phase", "phase": 3, "label": "Conflict detection"})
 
     conflicts = coordinator.detect_conflicts()
     await broadcast({"event": "band_room_conflicts", "conflicts": conflicts, "count": len(conflicts)})
 
-    # ── Phase 4: regulator issues final decision ───────────────────────────────
+    # ── Phase 4 ───────────────────────────────────────────────────────────────
+    await broadcast({"event": "phase", "phase": 4, "label": "Regulator decision"})
 
-    await broadcast({"event": "phase", "phase": 4, "label": "Regulator making decision"})
-
-    regulator_agent = RegulatorAgent()
-    regulator_result = await regulator_agent.analyze(coordinator.state)
-
+    regulator_result = await RegulatorAgent().analyze(coordinator.state)
     coordinator.receive("regulator", regulator_result)
     await broadcast({"event": "agent_done", "agent": "regulator", "data": regulator_result.model_dump()})
 
-    # ── Phase 5: finalise and broadcast audit ──────────────────────────────────
-
+    # ── Phase 5: report ────────────────────────────────────────────────────────
     coordinator.state.final_decision_ready = True
     audit = coordinator.generate_audit_report()
 
+    report_path = generate_report(coordinator.state, scenario, audit)
+    session_id  = coordinator.state.session_id
+    logger.info(f"📄 Report saved: {report_path}")
+
     await broadcast({
         "event": "pipeline_complete",
-        "final_decision": regulator_result.policy_recommendation,
+        "final_decision":   regulator_result.policy_recommendation,
         "escalate_to_human": regulator_result.escalate_to_human,
         "escalation_reason": regulator_result.escalation_reason,
-        "confidence_score": regulator_result.confidence_score,
-        "audit_trail": audit,
+        "confidence_score":  regulator_result.confidence_score,
+        "import_trigger":    regulator_result.import_trigger,
+        "price_controls":    regulator_result.price_controls,
+        "emergency_reserves": regulator_result.emergency_reserves_release,
+        "subsidy_plan":      [s.model_dump() for s in regulator_result.subsidy_plan],
+        "conflicts":         conflicts,
+        "session_id":        session_id,
+        "report_url":        f"/report/{session_id}",
+        "audit_trail":       audit,
     })
 
     logger.info("✅ Pipeline complete")
     return coordinator.state
 
 
-# ── API endpoints ──────────────────────────────────────────────────────────────
+# ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @app.get("/")
 async def root():
@@ -184,36 +186,64 @@ async def health():
 
 @app.post("/run")
 async def run_sync(request: RunRequest):
-    """Synchronous pipeline run (no WebSocket streaming)."""
+    """Synchronous pipeline run — returns full result including report URL."""
     events = []
 
     async def collect(data: dict):
         events.append(data)
 
     state = await run_pipeline(request.scenario, collect)
+    sid   = state.session_id
 
     return {
-        "session_id": state.session_id,
-        "final_decision": state.regulator.policy_recommendation if state.regulator else None,
+        "session_id":       sid,
+        "report_url":       f"/report/{sid}",
+        "final_decision":   state.regulator.policy_recommendation if state.regulator else None,
         "escalate_to_human": state.regulator.escalate_to_human if state.regulator else False,
         "confidence_score": state.regulator.confidence_score if state.regulator else 0,
-        "conflicts": state.conflicts,
-        "events": events,
+        "conflicts":        state.conflicts,
+        "events":           events,
     }
+
+
+@app.get("/report/{session_id}", response_class=PlainTextResponse)
+async def get_report_md(session_id: str):
+    """Return the Markdown report for a given session."""
+    sid  = session_id[:8]
+    path = REPORTS_DIR / f"report_{sid}.md"
+    if not path.exists():
+        return PlainTextResponse("Report not found", status_code=404)
+    return PlainTextResponse(path.read_text(encoding="utf-8"), media_type="text/markdown")
+
+
+@app.get("/report/{session_id}/json")
+async def get_report_json(session_id: str):
+    """Return the raw JSON data for a given session."""
+    sid  = session_id[:8]
+    path = REPORTS_DIR / f"report_{sid}.json"
+    if not path.exists():
+        return {"error": "Report not found"}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@app.get("/reports")
+async def list_reports():
+    """List all available reports."""
+    files = sorted(REPORTS_DIR.glob("report_*.md"), reverse=True)
+    return [
+        {"session_id": f.stem.replace("report_", ""), "url": f"/report/{f.stem.replace('report_', '')}"}
+        for f in files[:20]
+    ]
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """
-    WebSocket endpoint for real-time Band Room event streaming.
-    Client sends a scenario → server streams events as agents complete their work.
-    """
+    """WebSocket endpoint — streams pipeline events in real time."""
     await manager.connect(websocket)
-
     try:
         while True:
-            data = await websocket.receive_text()
-            request = json.loads(data)
+            data     = await websocket.receive_text()
+            request  = json.loads(data)
             scenario = request.get("scenario", "Analyse food security conditions")
 
             async def broadcast(event_data: dict):
@@ -230,11 +260,30 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 if __name__ == "__main__":
-    import uvicorn
-    import os
+    import uvicorn, os
     uvicorn.run(
         "backend.main:app",
         host=os.getenv("BACKEND_HOST", "0.0.0.0"),
         port=int(os.getenv("BACKEND_PORT", 8000)),
         reload=True,
+    )
+
+
+@app.get("/report/{session_id}/pdf")
+async def get_report_pdf(session_id: str):
+    """Generate and download a PDF version of the report."""
+    from backend.report import generate_pdf
+    from fastapi.responses import FileResponse as FR
+    pdf_path = generate_pdf(session_id)
+    if not pdf_path:
+        return PlainTextResponse(
+            "PDF generation requires weasyprint.\nRun: pip install weasyprint",
+            status_code=501
+        )
+    sid = session_id[:8]
+    return FR(
+        pdf_path,
+        media_type="application/pdf",
+        filename=f"FoodEnergyMAS_report_{sid}.pdf",
+        headers={"Content-Disposition": f"attachment; filename=FoodEnergyMAS_report_{sid}.pdf"},
     )

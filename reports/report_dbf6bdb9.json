@@ -1,0 +1,183 @@
+{
+  "session_id": "dbf6bdb9-1848-4e07-958b-b2ec9f330d37",
+  "scenario": "test",
+  "generated_at": "2026-06-15 19:26 UTC",
+  "farmer": {
+    "agent": "farmer",
+    "timestamp": "2026-06-15T19:26:34.375089",
+    "message_id": "7440eb50",
+    "crop_forecast": [
+      {
+        "crop_type": "wheat",
+        "region": "Kazakhstan",
+        "expected_yield_tons": 17800000.0,
+        "vs_last_year_pct": 8.0,
+        "harvest_date": "2024-09"
+      }
+    ],
+    "risk_flags": [
+      "drought_risk",
+      "fertilizer_shortage"
+    ],
+    "deficit_regions": [
+      "Akmola",
+      "Kostanay"
+    ],
+    "deficit_pct": 22.0,
+    "climate_risk_score": 0.72,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "logistics": {
+    "agent": "logistics",
+    "timestamp": "2026-06-15T19:26:40.805849",
+    "message_id": "d8400ff2",
+    "route_plan": [
+      {
+        "from_region": "Kostanay",
+        "to_region": "Akmola",
+        "transport_mode": "rail",
+        "capacity_tons": 50000.0,
+        "estimated_days": 3,
+        "cost_per_ton_usd": 12.5
+      }
+    ],
+    "loss_estimate_pct": 8.5,
+    "bottlenecks": [
+      "Dostyk border crossing",
+      "Aktau port"
+    ],
+    "storage_capacity_available_tons": 2500000.0,
+    "logistics_risk_score": 0.45,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "energy": {
+    "agent": "energy",
+    "timestamp": "2026-06-15T19:26:32.751988",
+    "message_id": "7c2f2f0a",
+    "energy_price_usd_kwh": 0.18,
+    "energy_price_trend": "rising",
+    "grid_load_pct": 82.0,
+    "shortage_alert": "warning",
+    "renewable_share_pct": 22.0,
+    "impact_on_food_production": "High electricity costs increase irrigation and cold storage expenses by 25%.",
+    "energy_risk_score": 0.61,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5"
+    ]
+  },
+  "market": {
+    "agent": "market",
+    "timestamp": "2026-06-15T19:26:42.588011",
+    "message_id": "206b135e",
+    "price_recommendations": [
+      {
+        "commodity": "wheat",
+        "current_price_usd": 195.0,
+        "recommended_price_usd": 210.0,
+        "rationale": "Supply deficit warrants 8% price increase to reduce speculation."
+      }
+    ],
+    "demand_signal": "high",
+    "demand_trend": "increasing",
+    "stock_level_days": 28.0,
+    "inflation_risk": "medium",
+    "speculation_detected": false,
+    "market_risk_score": 0.58,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "regulator": {
+    "agent": "regulator",
+    "timestamp": "2026-06-15T19:26:53.134315",
+    "message_id": "36f3313a",
+    "policy_recommendation": "Activate emergency grain reserves for Akmola region. Negotiate duty-free wheat import from Russia (300k tonnes). Subsidise electricity for irrigation by 30%.",
+    "subsidy_plan": [
+      {
+        "target": "irrigation_electricity",
+        "amount_usd_million": 45.0,
+        "duration_months": 6,
+        "rationale": "Offset 40% energy cost increase to protect harvest yields."
+      }
+    ],
+    "import_trigger": true,
+    "import_details": "Emergency import of 300,000 tonnes of wheat from Russia via Dostyk corridor.",
+    "price_controls": false,
+    "emergency_reserves_release": true,
+    "confidence_score": 0.78,
+    "escalate_to_human": false,
+    "escalation_reason": null,
+    "conflicts_detected": [],
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "conflicts": [],
+  "audit": {
+    "session_id": "dbf6bdb9-1848-4e07-958b-b2ec9f330d37",
+    "debate_rounds": 0,
+    "conflicts_found": 0,
+    "final_decision": "Activate emergency grain reserves for Akmola region. Negotiate duty-free wheat import from Russia (300k tonnes). Subsidise electricity for irrigation by 30%.",
+    "escalated": false,
+    "audit_trail": [
+      {
+        "agent": "farmer",
+        "action": "published",
+        "details": "payload_id=7440eb50",
+        "timestamp": "2026-06-15T19:26:27.508034"
+      },
+      {
+        "agent": "energy",
+        "action": "published",
+        "details": "payload_id=7c2f2f0a",
+        "timestamp": "2026-06-15T19:26:27.508034"
+      },
+      {
+        "agent": "logistics",
+        "action": "published",
+        "details": "payload_id=d8400ff2",
+        "timestamp": "2026-06-15T19:26:27.508034"
+      },
+      {
+        "agent": "market",
+        "action": "published",
+        "details": "payload_id=206b135e",
+        "timestamp": "2026-06-15T19:26:27.508034"
+      },
+      {
+        "agent": "regulator",
+        "action": "published",
+        "details": "payload_id=36f3313a",
+        "timestamp": "2026-06-15T19:26:27.508034"
+      }
+    ]
+  }
+}

@@ -1,23 +1,19 @@
 """
 agents/farmer.py — Farmer Agent.
-Connects to Band via AnthropicAdapter; uses Featherless AI for analysis.
+Uses Featherless AI + ChromaDB RAG for local analysis (FastAPI pipeline).
+Band SDK integration is in run_farmer_band_agent() — only needed for launch_all_band_agents.py.
 """
 
 import asyncio
-import json
 import os
+from pathlib import Path
 from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
 from loguru import logger
-
-from band import Agent
-from band.adapters import AnthropicAdapter
-from band.config import load_agent_config
-
 from backend.agents.base_agent import BaseAgent
 from backend.schemas import FarmerPayload
 from backend.config import SYSTEM_PROMPTS
-
-load_dotenv()
 
 
 class FarmerAgent(BaseAgent):
@@ -26,7 +22,6 @@ class FarmerAgent(BaseAgent):
 
     async def analyze(self, scenario: str) -> FarmerPayload:
         result = await super().analyze(scenario)
-        # Validate against the Pydantic schema
         try:
             payload = FarmerPayload(**result)
             logger.info(
@@ -40,27 +35,22 @@ class FarmerAgent(BaseAgent):
             raise
 
 
-# ── Band SDK — run agent as a persistent Band platform participant ──────────────
-
 async def run_farmer_band_agent():
-    """
-    Starts the Farmer Agent as a persistent Band agent.
-    The agent listens on the Band Room and responds to @mentions.
-    """
-    load_dotenv()
+    """Band platform mode — only used by launch_all_band_agents.py."""
+    # Band SDK imports deferred here so they don't break the FastAPI pipeline
+    from thenvoi import Agent
+    from thenvoi.adapters import AnthropicAdapter
+    from thenvoi.config import load_agent_config
+
     agent_id, api_key = load_agent_config("farmer_agent")
-
     adapter = AnthropicAdapter(
-        model="claude-sonnet-4-6",  # Band protocol fallback model
+        model="claude-sonnet-4-6",
         custom_section=SYSTEM_PROMPTS["farmer"] + """
-
 BAND ROOM INSTRUCTIONS:
-When mentioned (@FarmerAgent or @farmer), run your analysis on the given scenario.
-Return structured JSON with crop forecasts, risk flags, and regional deficits.
-After completing your analysis, mention @Coordinator with your results.
+When mentioned (@FarmerAgent), analyse the scenario and return JSON.
+After completing, mention @Coordinator with your results.
 """,
     )
-
     agent = Agent.create(
         adapter=adapter,
         agent_id=agent_id,
@@ -68,7 +58,6 @@ After completing your analysis, mention @Coordinator with your results.
         ws_url=os.getenv("THENVOI_WS_URL"),
         rest_url=os.getenv("THENVOI_REST_URL"),
     )
-
     logger.info("🌾 Farmer Agent connected to Band. Listening...")
     await agent.run()
 

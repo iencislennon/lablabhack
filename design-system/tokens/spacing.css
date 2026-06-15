@@ -1,0 +1,36 @@
+/* ── CrisisNet / FoodEnergyMAS — Spacing & Layout Tokens ─────────────────── */
+
+:root {
+  /* ── Base spacing scale (4px grid) ────────────────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── Component-level padding ───────────────────────────────────────────── */
+  --pad-card:   14px 16px;
+  --pad-input:  8px 10px;
+  --pad-badge:  2px 8px;
+  --pad-button: 6px 14px;
+  --pad-pill:   3px 10px;
+
+  /* ── Border radii (max 8px enforced by brand) ──────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* ── Layout structure ──────────────────────────────────────────────────── */
+  --sidebar-width:      240px;
+  --slide-panel-width:  320px;
+  --agent-icon-size:     28px;
+  --phase-circle-size:   20px;
+  --progress-height:      1px;
+  --risk-bar-height:      4px;
+  --band-room-height:   200px;
+}

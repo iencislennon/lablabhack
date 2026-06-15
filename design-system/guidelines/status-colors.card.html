@@ -1,0 +1,34 @@
+<!-- @dsCard group="Colors" viewport="700x160" name="Status Colors" subtitle="Risk HIGH/MEDIUM/LOW, escalation, success, error" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; background: #fff; font-family: var(--font-sans); padding: 16px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { border-radius: 4px; padding: 6px 14px; font-size: 11px; font-weight: 500; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .section { margin-bottom: 12px; }
+  .label { font-size: 10px; color: var(--color-text-muted); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div class="section">
+  <div class="label">Risk</div>
+  <div class="row">
+    <div class="chip" style="background:var(--color-risk-low-bg);color:var(--color-risk-low)"><div class="dot" style="background:var(--color-risk-low)"></div>LOW</div>
+    <div class="chip" style="background:var(--color-risk-medium-bg);color:var(--color-risk-medium)"><div class="dot" style="background:var(--color-risk-medium)"></div>MEDIUM</div>
+    <div class="chip" style="background:var(--color-risk-high-bg);color:var(--color-risk-high)"><div class="dot" style="background:var(--color-risk-high)"></div>HIGH</div>
+  </div>
+</div>
+<div class="section">
+  <div class="label">Pipeline</div>
+  <div class="row">
+    <div class="chip" style="background:var(--color-escalation-bg);color:var(--color-escalation-text)"><div class="dot" style="background:var(--color-escalation)"></div>Escalation</div>
+    <div class="chip" style="background:var(--color-success-bg);color:var(--color-success-text)"><div class="dot" style="background:var(--color-success)"></div>Success</div>
+    <div class="chip" style="background:var(--color-error-bg);color:var(--color-error)"><div class="dot" style="background:var(--color-error)"></div>Error</div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,172 @@
+{
+  "session_id": "f67ef664-fdab-4a10-87eb-0222d379733d",
+  "scenario": "Regional drought assessment — North Africa grain belt, Q3 2026",
+  "generated_at": "2026-06-15 19:21 UTC",
+  "farmer": {
+    "agent": "farmer",
+    "timestamp": "2026-06-15T19:20:30.040068",
+    "message_id": "4a4315b8",
+    "crop_forecast": [],
+    "risk_flags": [
+      "drought_risk",
+      "fertilizer_shortage"
+    ],
+    "deficit_regions": [],
+    "deficit_pct": 0.0,
+    "climate_risk_score": 0.85,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "logistics": {
+    "agent": "logistics",
+    "timestamp": "2026-06-15T19:20:38.771518",
+    "message_id": "f58bc631",
+    "route_plan": [
+      {
+        "from_region": "Kazakhstan",
+        "to_region": "North Africa",
+        "transport_mode": "rail",
+        "capacity_tons": 1800000.0,
+        "estimated_days": 25,
+        "cost_per_ton_usd": 15.0
+      }
+    ],
+    "loss_estimate_pct": 8.5,
+    "bottlenecks": [
+      "Dostyk border crossing",
+      "Aktau port"
+    ],
+    "storage_capacity_available_tons": 2500000.0,
+    "logistics_risk_score": 0.45,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "energy": {
+    "agent": "energy",
+    "timestamp": "2026-06-15T19:20:32.291256",
+    "message_id": "94305c92",
+    "energy_price_usd_kwh": 0.18,
+    "energy_price_trend": "stable",
+    "grid_load_pct": 82.0,
+    "shortage_alert": "warning",
+    "renewable_share_pct": 22.0,
+    "impact_on_food_production": "High electricity costs increase irrigation and cold storage expenses by 25%. Drought conditions exacerbate water scarcity, leading to higher irrigation costs and potential crop failures.",
+    "energy_risk_score": 0.61,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5"
+    ]
+  },
+  "market": {
+    "agent": "market",
+    "timestamp": "2026-06-15T19:20:46.035690",
+    "message_id": "2941c2ce",
+    "price_recommendations": [
+      {
+        "commodity": "wheat",
+        "current_price_usd": 195.0,
+        "recommended_price_usd": 210.0,
+        "rationale": "Supply deficit warrants 8% price increase to reduce speculation."
+      }
+    ],
+    "demand_signal": "high",
+    "demand_trend": "increasing",
+    "stock_level_days": 28.0,
+    "inflation_risk": "medium",
+    "speculation_detected": false,
+    "market_risk_score": 0.58,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "regulator": {
+    "agent": "regulator",
+    "timestamp": "2026-06-15T19:21:05.041419",
+    "message_id": "3057add3",
+    "policy_recommendation": "Activate emergency grain reserves for Akmola region. Negotiate duty-free wheat import from Russia (300k tonnes). Subsidise electricity for irrigation by 30%.",
+    "subsidy_plan": [
+      {
+        "target": "irrigation_electricity",
+        "amount_usd_million": 45.0,
+        "duration_months": 6,
+        "rationale": "Offset 40% energy cost increase to protect harvest yields."
+      }
+    ],
+    "import_trigger": true,
+    "import_details": "Emergency import of 300,000 tonnes of wheat from Russia via Dostyk corridor.",
+    "price_controls": false,
+    "emergency_reserves_release": true,
+    "confidence_score": 0.78,
+    "escalate_to_human": false,
+    "escalation_reason": null,
+    "conflicts_detected": [],
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "conflicts": [],
+  "audit": {
+    "session_id": "f67ef664-fdab-4a10-87eb-0222d379733d",
+    "debate_rounds": 0,
+    "conflicts_found": 0,
+    "final_decision": "Activate emergency grain reserves for Akmola region. Negotiate duty-free wheat import from Russia (300k tonnes). Subsidise electricity for irrigation by 30%.",
+    "escalated": false,
+    "audit_trail": [
+      {
+        "agent": "farmer",
+        "action": "published",
+        "details": "payload_id=4a4315b8",
+        "timestamp": "2026-06-15T19:20:25.297955"
+      },
+      {
+        "agent": "energy",
+        "action": "published",
+        "details": "payload_id=94305c92",
+        "timestamp": "2026-06-15T19:20:25.297955"
+      },
+      {
+        "agent": "logistics",
+        "action": "published",
+        "details": "payload_id=f58bc631",
+        "timestamp": "2026-06-15T19:20:25.297955"
+      },
+      {
+        "agent": "market",
+        "action": "published",
+        "details": "payload_id=2941c2ce",
+        "timestamp": "2026-06-15T19:20:25.297955"
+      },
+      {
+        "agent": "regulator",
+        "action": "published",
+        "details": "payload_id=3057add3",
+        "timestamp": "2026-06-15T19:20:25.297955"
+      }
+    ]
+  }
+}

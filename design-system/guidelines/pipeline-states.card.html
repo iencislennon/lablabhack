@@ -1,0 +1,47 @@
+<!-- @dsCard group="Brand" viewport="700x160" name="Pipeline States" subtitle="Idle → running → escalated / complete visual system" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../styles.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+<style>
+  @keyframes badge-spin { to { transform: rotate(360deg); } }
+  @keyframes progress-run { 0%{transform:translateX(-100%)} 100%{transform:translateX(500%)} }
+  body { margin:0; font-family:var(--font-sans); padding:16px; background:#fff; }
+  .row { display:flex; gap:10px; align-items:stretch; }
+  .card { flex:1; border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:12px 14px; }
+  .badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:500; }
+  .label { font-size:10px; font-weight:500; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; }
+  .progress-wrap { height:1px; background:#f1f5f9; border-radius:1px; overflow:hidden; position:relative; margin-top:6px; }
+  .progress-bar { position:absolute; height:100%; width:20%; background:#7c3aed; animation:progress-run 1.8s ease-in-out infinite; }
+  .progress-full { position:absolute; inset:0; background:#7c3aed; }
+</style>
+</head>
+<body>
+<div class="row">
+  <div class="card" style="opacity:0.4">
+    <div class="label">Idle</div>
+    <div style="font-size:13px;font-weight:500;margin-bottom:6px">Security Assessment</div>
+    <div style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#0f1623;color:#fff;border-radius:6px;font-size:13px;font-weight:500"><i class="ti ti-player-play" style="font-size:13px"></i> Run Pipeline</div>
+  </div>
+  <div class="card">
+    <div class="label">Running</div>
+    <div style="font-size:13px;font-weight:500;margin-bottom:6px">Security Assessment</div>
+    <div style="display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:transparent;color:#e53e3e;border:1px solid #e53e3e;border-radius:6px;font-size:13px;font-weight:500"><i class="ti ti-player-stop" style="font-size:13px"></i> Stop</div>
+    <div class="progress-wrap"><div class="progress-bar"></div></div>
+  </div>
+  <div class="card" style="background:#fffbeb;border-color:#f59e0b;border-left:3px solid #f59e0b">
+    <div class="label" style="color:#d97706">Escalated</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><i class="ti ti-alert-triangle" style="color:#f59e0b;font-size:14px"></i><span style="font-size:13px;font-weight:500;color:#92400e">Human decision required</span></div>
+    <span class="badge" style="background:#fef3c7;color:#92400e">confidence: 66%</span>
+  </div>
+  <div class="card" style="background:#f0fdf4;border-color:#86efac;border-left:3px solid #22c55e">
+    <div class="label" style="color:#15803d">Complete</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><i class="ti ti-check" style="color:#22c55e;font-size:14px"></i><span style="font-size:13px;font-weight:500;color:#15803d">Final policy decision</span></div>
+    <span class="badge" style="background:#dcfce7;color:#15803d">confidence: 81%</span>
+    <div class="progress-wrap" style="margin-top:6px"><div class="progress-full"></div></div>
+  </div>
+</div>
+</body>
+</html>
