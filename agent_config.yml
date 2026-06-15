@@ -1,0 +1,23 @@
+# Band Agent Credentials
+# Get UUID and API Key at https://app.band.ai/agents
+# Create each agent as a Remote Agent, then paste credentials below.
+
+farmer_agent:
+  agent_id: "ecc80759-d8e4-452d-a193-68465b964469"
+  api_key: "band_a_1781420806_RFtRunZDOSoC6CbPPJP6Uj6Gj6VE_8Yq"
+
+logistics_agent:
+  agent_id: "2878e8f7-ed48-45ca-84bc-8f9e3f25ad74"
+  api_key: "band_a_1781420909_KZJHywVUWBJoe9VlI3wt1oXELFPVp9bH"
+
+energy_agent:
+  agent_id: "8c514c53-ef13-48ec-817b-d3187de362c1"
+  api_key: "band_a_1781420982_ddciF0EcASy9qFOPn3_Vir9mHJnNub5d"
+
+market_agent:
+  agent_id: "6b49d7f2-b02d-4c47-99dc-b7ba99b89315"
+  api_key: "band_a_1781421045_t68LO02SNRDi8sqyE9F19-337CG_aRJO"
+
+regulator_agent:
+  agent_id: "34fbd6f5-c77b-4b16-a201-05f073a6401a"
+  api_key: "band_a_1781421094_GYC2rZYP5N6_B_UWJthyPDspodYJ2vT_"
