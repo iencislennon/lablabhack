@@ -10,7 +10,7 @@ from chromadb.utils import embedding_functions
 from loguru import logger
 
 # ── Singletons — created once, reused forever ──────────────────────────────────
-_client: chromadb.PersistentClient | None = None
+_client = None
 _ef = None
 _collections: dict = {}
 

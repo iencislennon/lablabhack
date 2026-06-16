@@ -1,0 +1,181 @@
+{
+  "session_id": "8aec9611-26d0-4786-9556-97f429e90e76",
+  "scenario": "Regional drought assessment — North Africa grain belt, Q3 2026",
+  "generated_at": "2026-06-16 16:20 UTC",
+  "farmer": {
+    "agent": "farmer",
+    "timestamp": "2026-06-16T16:19:57.081936",
+    "message_id": "7a0ae936",
+    "crop_forecast": [
+      {
+        "crop_type": "wheat",
+        "region": "Kazakhstan",
+        "expected_yield_tons": 17800000.0,
+        "vs_last_year_pct": 8.0,
+        "harvest_date": "2026-09"
+      }
+    ],
+    "risk_flags": [
+      "drought_risk",
+      "fertilizer_shortage"
+    ],
+    "deficit_regions": [
+      "Akmola",
+      "Kostanay"
+    ],
+    "deficit_pct": 22.0,
+    "climate_risk_score": 0.72,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5"
+    ]
+  },
+  "logistics": {
+    "agent": "logistics",
+    "timestamp": "2026-06-16T16:20:03.751265",
+    "message_id": "56a60de4",
+    "route_plan": [
+      {
+        "from_region": "Kostanay",
+        "to_region": "Akmola",
+        "transport_mode": "rail",
+        "capacity_tons": 50000.0,
+        "estimated_days": 3,
+        "cost_per_ton_usd": 12.5
+      }
+    ],
+    "loss_estimate_pct": 8.5,
+    "bottlenecks": [
+      "Dostyk border crossing",
+      "Aktau port"
+    ],
+    "storage_capacity_available_tons": 2500000.0,
+    "logistics_risk_score": 0.45,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "energy": {
+    "agent": "energy",
+    "timestamp": "2026-06-16T16:19:56.357772",
+    "message_id": "04a3b511",
+    "energy_price_usd_kwh": 0.18,
+    "energy_price_trend": "stable",
+    "grid_load_pct": 82.0,
+    "shortage_alert": "warning",
+    "renewable_share_pct": 22.0,
+    "impact_on_food_production": "High electricity costs increase irrigation and cold storage expenses by 25%. Regional drought exacerbates water scarcity, raising irrigation costs further.",
+    "energy_risk_score": 0.61,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5"
+    ]
+  },
+  "market": {
+    "agent": "market",
+    "timestamp": "2026-06-16T16:20:05.549670",
+    "message_id": "4b5a69ce",
+    "price_recommendations": [
+      {
+        "commodity": "wheat",
+        "current_price_usd": 195.0,
+        "recommended_price_usd": 210.0,
+        "rationale": "Supply deficit warrants 8% price increase to reduce speculation."
+      }
+    ],
+    "demand_signal": "high",
+    "demand_trend": "increasing",
+    "stock_level_days": 28.0,
+    "inflation_risk": "medium",
+    "speculation_detected": false,
+    "market_risk_score": 0.58,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "regulator": {
+    "agent": "regulator",
+    "timestamp": "2026-06-16T16:20:16.024050",
+    "message_id": "d93e1071",
+    "policy_recommendation": "Activate emergency grain reserves for Akmola region. Negotiate duty-free wheat import from Russia (300k tonnes). Subsidise electricity for irrigation by 30%.",
+    "subsidy_plan": [
+      {
+        "target": "irrigation_electricity",
+        "amount_usd_million": 45.0,
+        "duration_months": 6,
+        "rationale": "Offset 40% energy cost increase to protect harvest yields."
+      }
+    ],
+    "import_trigger": true,
+    "import_details": "Emergency import of 300,000 tonnes of wheat from Russia via Dostyk corridor.",
+    "price_controls": false,
+    "emergency_reserves_release": true,
+    "confidence_score": 0.78,
+    "escalate_to_human": false,
+    "escalation_reason": null,
+    "conflicts_detected": [],
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5"
+    ]
+  },
+  "conflicts": [],
+  "audit": {
+    "session_id": "8aec9611-26d0-4786-9556-97f429e90e76",
+    "debate_rounds": 0,
+    "conflicts_found": 0,
+    "final_decision": "Activate emergency grain reserves for Akmola region. Negotiate duty-free wheat import from Russia (300k tonnes). Subsidise electricity for irrigation by 30%.",
+    "escalated": false,
+    "audit_trail": [
+      {
+        "agent": "farmer",
+        "action": "published",
+        "details": "payload_id=7a0ae936",
+        "timestamp": "2026-06-16T16:19:50.965029"
+      },
+      {
+        "agent": "energy",
+        "action": "published",
+        "details": "payload_id=04a3b511",
+        "timestamp": "2026-06-16T16:19:50.965029"
+      },
+      {
+        "agent": "logistics",
+        "action": "published",
+        "details": "payload_id=56a60de4",
+        "timestamp": "2026-06-16T16:19:50.965029"
+      },
+      {
+        "agent": "market",
+        "action": "published",
+        "details": "payload_id=4b5a69ce",
+        "timestamp": "2026-06-16T16:19:50.965029"
+      },
+      {
+        "agent": "regulator",
+        "action": "published",
+        "details": "payload_id=d93e1071",
+        "timestamp": "2026-06-16T16:19:50.965029"
+      }
+    ]
+  }
+}

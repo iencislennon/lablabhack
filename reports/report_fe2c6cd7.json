@@ -1,0 +1,184 @@
+{
+  "session_id": "fe2c6cd7-c215-44b0-9c3c-d2b1052c1164",
+  "scenario": "The global food and energy system is facing a convergence of simultaneous crises in 2026: a severe multi-year drought across Central Asia and the Sahel has reduced wheat and grain production by 30-40% in key agricultural regions; the ongoing conflict in Eastern Europe has disrupted supply chains for fertilizers, sunflower oil, and corn exports; a major cyberattack on European energy grid infrastructure has caused electricity prices to spike 60% above 2024 levels, directly impacting irrigation, cold storage, and food processing capacity; speculative trading activity on commodity markets has pushed wheat futures to a 10-year high; global shipping disruptions through the Suez Canal and the Strait of Hormuz have increased freight costs by 45% and extended delivery times by 3 weeks; the UN World Food Programme reports that 340 million people are currently facing acute food insecurity across 72 countries; China has quietly reduced its grain export quota by 25% citing domestic reserves concerns; and a sudden El Niño pattern is projected to devastate rice harvests across Southeast Asia in the next growing season. Given all these compounding factors — assess the full spectrum of food and energy security risks, identify the most critical supply chain bottlenecks, detect conflicts between market signals and production realities, and recommend an integrated emergency policy response including strategic reserve releases, emergency import corridors, targeted subsidies, price stabilization mechanisms, and human escalation triggers where confidence is insufficient to act autonomously.",
+  "generated_at": "2026-06-16 16:36 UTC",
+  "farmer": {
+    "agent": "farmer",
+    "timestamp": "2026-06-16T16:35:41.397564",
+    "message_id": "35f603a6",
+    "crop_forecast": [
+      {
+        "crop_type": "wheat",
+        "region": "Kazakhstan",
+        "expected_yield_tons": 17800000.0,
+        "vs_last_year_pct": 8.0,
+        "harvest_date": "2026-09"
+      }
+    ],
+    "risk_flags": [
+      "drought_risk",
+      "fertilizer_shortage",
+      "cyberattack_risk",
+      "speculative_trading",
+      "shipping_disruptions"
+    ],
+    "deficit_regions": [
+      "Akmola",
+      "Kostanay"
+    ],
+    "deficit_pct": 30.0,
+    "climate_risk_score": 0.85,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5"
+    ]
+  },
+  "logistics": {
+    "agent": "logistics",
+    "timestamp": "2026-06-16T16:35:51.977482",
+    "message_id": "4044dc81",
+    "route_plan": [
+      {
+        "from_region": "Kostanay",
+        "to_region": "Akmola",
+        "transport_mode": "rail",
+        "capacity_tons": 50000.0,
+        "estimated_days": 3,
+        "cost_per_ton_usd": 12.5
+      }
+    ],
+    "loss_estimate_pct": 8.5,
+    "bottlenecks": [
+      "Dostyk border crossing",
+      "Aktau port"
+    ],
+    "storage_capacity_available_tons": 2500000.0,
+    "logistics_risk_score": 0.45,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "energy": {
+    "agent": "energy",
+    "timestamp": "2026-06-16T16:35:36.891242",
+    "message_id": "39b0977d",
+    "energy_price_usd_kwh": 0.29,
+    "energy_price_trend": "rising",
+    "grid_load_pct": 85.0,
+    "shortage_alert": "critical",
+    "renewable_share_pct": 20.0,
+    "impact_on_food_production": "Severe drought and increased electricity costs have raised irrigation and cold storage expenses by 50%, exacerbating food production challenges.",
+    "energy_risk_score": 0.85,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5"
+    ]
+  },
+  "market": {
+    "agent": "market",
+    "timestamp": "2026-06-16T16:35:49.758174",
+    "message_id": "291f06b6",
+    "price_recommendations": [
+      {
+        "commodity": "wheat",
+        "current_price_usd": 195.0,
+        "recommended_price_usd": 240.0,
+        "rationale": "Severe production deficits and speculative pressures necessitate a significant price increase to align with new supply realities."
+      }
+    ],
+    "demand_signal": "high",
+    "demand_trend": "increasing",
+    "stock_level_days": 20.0,
+    "inflation_risk": "high",
+    "speculation_detected": true,
+    "market_risk_score": 0.82,
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5",
+      "doc_6"
+    ]
+  },
+  "regulator": {
+    "agent": "regulator",
+    "timestamp": "2026-06-16T16:36:02.185908",
+    "message_id": "26d16315",
+    "policy_recommendation": "Activate emergency grain reserves for Akmola region. Negotiate duty-free wheat import from Russia (300k tonnes). Subsidise electricity for irrigation by 30%.",
+    "subsidy_plan": [
+      {
+        "target": "irrigation_electricity",
+        "amount_usd_million": 45.0,
+        "duration_months": 6,
+        "rationale": "Offset 40% energy cost increase to protect harvest yields."
+      }
+    ],
+    "import_trigger": true,
+    "import_details": "Emergency import of 300,000 tonnes of wheat from Russia via Dostyk corridor.",
+    "price_controls": false,
+    "emergency_reserves_release": true,
+    "confidence_score": 0.78,
+    "escalate_to_human": true,
+    "escalation_reason": "Critical energy shortage — cascading food risk",
+    "conflicts_detected": [],
+    "rag_sources": [
+      "doc_1",
+      "doc_2",
+      "doc_3",
+      "doc_4",
+      "doc_5"
+    ]
+  },
+  "conflicts": [],
+  "audit": {
+    "session_id": "fe2c6cd7-c215-44b0-9c3c-d2b1052c1164",
+    "debate_rounds": 0,
+    "conflicts_found": 0,
+    "final_decision": "Activate emergency grain reserves for Akmola region. Negotiate duty-free wheat import from Russia (300k tonnes). Subsidise electricity for irrigation by 30%.",
+    "escalated": true,
+    "audit_trail": [
+      {
+        "agent": "farmer",
+        "action": "published",
+        "details": "payload_id=35f603a6",
+        "timestamp": "2026-06-16T16:35:26.950611"
+      },
+      {
+        "agent": "energy",
+        "action": "published",
+        "details": "payload_id=39b0977d",
+        "timestamp": "2026-06-16T16:35:26.950611"
+      },
+      {
+        "agent": "logistics",
+        "action": "published",
+        "details": "payload_id=4044dc81",
+        "timestamp": "2026-06-16T16:35:26.950611"
+      },
+      {
+        "agent": "market",
+        "action": "published",
+        "details": "payload_id=291f06b6",
+        "timestamp": "2026-06-16T16:35:26.950611"
+      },
+      {
+        "agent": "regulator",
+        "action": "published",
+        "details": "payload_id=26d16315",
+        "timestamp": "2026-06-16T16:35:26.950611"
+      }
+    ]
+  }
+}

@@ -274,7 +274,7 @@ function FinalDecision({ decision }) {
       )
     ),
     React.createElement('div', { style:{ display:'flex', gap:8, alignItems:'center' } },
-      decision.report_url && React.createElement('a', { href:decision.report_url, target:'_blank', style:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', background:'#0f1623', color:'#fff', fontSize:12, fontWeight:500, borderRadius:6, textDecoration:'none' } },
+      decision.report_url && React.createElement('a', { href:decision.report_url ? decision.report_url + '/pdf' : '#', target:'_blank', download:'FoodEnergyMAS_report.pdf', style:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', background:'#0f1623', color:'#fff', fontSize:12, fontWeight:500, borderRadius:6, textDecoration:'none' } },
         React.createElement('i', { className:'ti ti-download', style:{ fontSize:12 } }),
         'Download report'
       ),
