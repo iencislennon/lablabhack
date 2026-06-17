@@ -1,0 +1,863 @@
+# FoodEnergyMAS — Complete Technical Document
+
+**Version:** 1.0  
+**Date:** June 2026  
+**Repository:** https://github.com/iencislennon/lablabhack  
+
+---
+
+## Table of Contents
+
+1. [System Overview](#1-system-overview)
+2. [Architecture](#2-architecture)
+3. [Pipeline — Step by Step](#3-pipeline--step-by-step)
+4. [RAG — Knowledge Base](#4-rag--knowledge-base)
+5. [Agent Design](#5-agent-design)
+6. [Band Room Coordination](#6-band-room-coordination)
+7. [Conflict Detection](#7-conflict-detection)
+8. [Escalation Logic](#8-escalation-logic)
+9. [Report Generation](#9-report-generation)
+10. [API Reference](#10-api-reference)
+11. [Data Schemas](#11-data-schemas)
+12. [Full Code Listing](#12-full-code-listing)
+
+---
+
+## 1. System Overview
+
+FoodEnergyMAS is a multi-agent AI system that coordinates five specialised agents to analyse food and energy security scenarios. Each agent independently queries a domain-specific vector knowledge base (ChromaDB RAG), calls an open-source LLM via Featherless AI, and publishes a typed JSON payload to a shared Band Room. A coordinator detects conflicts between agent signals. A Regulator agent synthesises all outputs into a final policy decision with a calibrated confidence score.
+
+### Key design principles
+
+- **Parallel execution** — Farmer + Energy run simultaneously in Phase 1; Logistics + Market in Phase 2
+- **RAG-grounded reasoning** — agents retrieve real documents before calling the LLM, not just general training knowledge
+- **Typed payloads** — every agent output is validated against a Pydantic schema before entering the Band Room
+- **Conflict detection** — semantic contradictions between agents are flagged automatically
+- **Human-in-the-loop** — escalation is automatic when confidence or domain thresholds are breached
+- **Audit trail** — every action is logged with agent name, action type, timestamp, and details
+- **PDF output** — complete structured report generated after every pipeline run
+
+---
+
+## 2. Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         CLIENT                                   │
+│   React Dashboard (CrisisNet Design System)                      │
+│   WebSocket → ws://localhost:8000/ws                            │
+│   Fallback  → POST http://localhost:8000/run                    │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ WebSocket / HTTP
+┌────────────────────────────▼────────────────────────────────────┐
+│                      FASTAPI BACKEND                             │
+│   backend/main.py                                               │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                   PIPELINE ORCHESTRATOR                  │   │
+│   │                                                          │   │
+│   │  Phase 1 ──── FarmerAgent ────────────────────────────► │   │
+│   │           └── EnergyAgent ────────────────────────────► │   │
+│   │                                                          │   │
+│   │  Phase 2 ──── LogisticsAgent (+ farmer data) ─────────► │   │
+│   │           └── MarketAgent   (+ energy data)  ─────────► │   │
+│   │                                                          │   │
+│   │  Phase 3 ──── BandCoordinator.detect_conflicts() ──────► │   │
+│   │                                                          │   │
+│   │  Phase 4 ──── RegulatorAgent ─────────────────────────► │   │
+│   │                                                          │   │
+│   │  Phase 5 ──── generate_report() → .md + .pdf ─────────► │   │
+│   └─────────────────────────────────────────────────────────┘   │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+           ┌─────────────────┼─────────────────┐
+           │                 │                 │
+┌──────────▼───────┐ ┌──────▼──────┐ ┌───────▼────────┐
+│   FEATHERLESS AI  │ │  CHROMADB   │ │   BAND PLATFORM │
+│                  │ │             │ │                 │
+│ Qwen2.5-7B       │ │ 5 collections│ │ 5 Remote Agents │
+│ Qwen2.5-14B      │ │ ~30 docs    │ │ WebSocket WS    │
+│ Mistral-7B       │ │ RAG queries │ │ thenvoi SDK     │
+│ (OpenAI compat.) │ │ cosine sim  │ │                 │
+└──────────────────┘ └─────────────┘ └─────────────────┘
+```
+
+### Technology stack
+
+| Component | Technology | Version |
+|---|---|---|
+| Backend framework | FastAPI | 0.137+ |
+| ASGI server | Uvicorn | 0.49+ |
+| LLM inference | Featherless AI (OpenAI-compatible) | — |
+| LLM client | openai Python SDK | 2.41+ |
+| Vector database | ChromaDB | 1.5+ |
+| Embeddings | sentence-transformers (all-MiniLM-L6-v2) | 5.5+ |
+| Data validation | Pydantic | 2.9+ |
+| Agent coordination | Band SDK (thenvoi) | 1.0.0 |
+| PDF generation | WeasyPrint | — |
+| Frontend | React 18, CrisisNet Design System | — |
+| Logging | Loguru | 0.7+ |
+
+---
+
+## 3. Pipeline — Step by Step
+
+### Phase 1: Independent agents (parallel)
+
+```python
+farmer_task = asyncio.create_task(FarmerAgent().analyze(scenario))
+energy_task = asyncio.create_task(EnergyAgent().analyze(scenario))
+farmer_result, energy_result = await asyncio.gather(farmer_task, energy_task)
+```
+
+Farmer and Energy are independent — neither depends on the other's output. They run concurrently via `asyncio.gather`. Each agent:
+1. Queries its ChromaDB collection (RAG)
+2. Injects retrieved documents into the system prompt
+3. Calls Featherless AI with `temperature=0.2`
+4. Extracts and validates JSON from the response
+5. Returns a typed Pydantic payload
+
+### Phase 2: Dependent agents (parallel)
+
+```python
+logistics_task = asyncio.create_task(
+    LogisticsAgent().analyze(scenario, farmer_context=farmer_result.model_dump())
+)
+market_task = asyncio.create_task(
+    MarketAgent().analyze(scenario, energy_context=energy_result.model_dump())
+)
+```
+
+Logistics receives the farmer's `deficit_regions` to prioritise route planning. Market receives the energy agent's `energy_price_usd_kwh` and `shortage_alert` to factor into cost estimates.
+
+### Phase 3: Conflict detection
+
+```python
+conflicts = coordinator.detect_conflicts()
+```
+
+The coordinator checks four conflict patterns (see Section 7). Conflicts are stored in `BandRoomState.conflicts` and broadcast to the frontend.
+
+### Phase 4: Regulator decision
+
+```python
+regulator_result = await RegulatorAgent().analyze(coordinator.state)
+```
+
+The Regulator receives the full `BandRoomState` — all four agent payloads plus detected conflicts. It synthesises a policy recommendation with a confidence score.
+
+### Phase 5: Report generation
+
+```python
+report_path = generate_report(coordinator.state, scenario, audit)
+```
+
+A Markdown report and PDF are generated and saved to `reports/`. The `pipeline_complete` WebSocket event includes `report_url` pointing to the PDF download endpoint.
+
+### WebSocket event stream
+
+Every phase transition and agent completion is broadcast to the client:
+
+```json
+{"event": "pipeline_start",       "scenario": "..."}
+{"event": "phase",                "phase": 1, "label": "Independent agents"}
+{"event": "agent_done",           "agent": "farmer", "data": {...}}
+{"event": "agent_done",           "agent": "energy", "data": {...}}
+{"event": "phase",                "phase": 2, "label": "Dependent agents"}
+{"event": "agent_done",           "agent": "logistics", "data": {...}}
+{"event": "agent_done",           "agent": "market", "data": {...}}
+{"event": "phase",                "phase": 3, "label": "Conflict detection"}
+{"event": "band_room_conflicts",  "conflicts": [...], "count": 2}
+{"event": "phase",                "phase": 4, "label": "Regulator decision"}
+{"event": "agent_done",           "agent": "regulator", "data": {...}}
+{"event": "pipeline_complete",    "final_decision": "...", "report_url": "..."}
+```
+
+---
+
+## 4. RAG — Knowledge Base
+
+### How RAG works in this system
+
+Before calling the LLM, each agent queries ChromaDB with domain-specific search terms. ChromaDB uses cosine similarity between sentence embeddings to find the most relevant documents. These documents are injected into the LLM system prompt as "KNOWLEDGE BASE" context. This grounds the agent's reasoning in real historical data rather than relying solely on the model's training knowledge.
+
+### Collections
+
+| Collection | Agent | Documents |
+|---|---|---|
+| `farmers_collection` | Farmer | 7 docs — Kazakhstan harvests, FAO food security, fertiliser crisis, climate risk |
+| `logistics_collection` | Logistics | 6 docs — Black Sea routes, Central Asia rail, Turkey storage, Suez disruption |
+| `energy_collection` | Energy | 5 docs — EU electricity prices, grid status, energy-fertiliser nexus, renewables |
+| `market_collection` | Market | 6 docs — CBOT wheat futures, global stocks (USDA), speculation data, food inflation |
+| `regulator_collection` | Regulator | 6 docs — EU/Russia subsidies, emergency import precedents, strategic reserves, price controls |
+
+### Embedding model
+
+`all-MiniLM-L6-v2` — a 22M parameter sentence transformer. Runs locally, no API needed. Produces 384-dimensional embeddings. Loaded once at startup and cached as a singleton.
+
+### RAG queries per agent
+
+```python
+RAG_QUERIES = {
+    "farmer":    ["wheat harvest yield deficit climate risk",
+                  "drought grain production forecast"],
+    "logistics": ["food supply chain routes bottlenecks losses",
+                  "grain storage capacity rail port"],
+    "energy":    ["electricity prices agriculture grid load shortage",
+                  "energy crisis food production"],
+    "market":    ["wheat price trends stock levels inflation",
+                  "food demand speculation reserves"],
+    "regulator": ["food security subsidies emergency import policy",
+                  "price controls intervention"],
+}
+```
+
+### Singleton caching
+
+ChromaDB client, embedding function, and all collections are initialised once at startup:
+
+```python
+_client: chromadb.PersistentClient | None = None
+_ef = None
+_collections: dict = {}
+
+def get_chroma_client():
+    global _client
+    if _client is None:
+        _client = chromadb.PersistentClient(path=persist_dir)
+    return _client
+```
+
+This avoids reloading the 22M embedding model on every agent call — reducing latency from ~8s to ~0.2s for RAG queries after warmup.
+
+---
+
+## 5. Agent Design
+
+### Base class: `BaseAgent`
+
+All five agents inherit from `BaseAgent` which handles:
+- Featherless AI client initialisation (OpenAI-compatible)
+- RAG query execution
+- LLM call with primary → fallback model retry
+- JSON extraction from raw LLM response
+- Pydantic payload validation in subclasses
+
+### Model assignment
+
+```python
+AGENT_MODELS = {
+    "farmer":    "Qwen/Qwen2.5-7B-Instruct",
+    "logistics": "Qwen/Qwen2.5-7B-Instruct",
+    "energy":    "Qwen/Qwen2.5-7B-Instruct",
+    "market":    "Qwen/Qwen2.5-14B-Instruct",
+    "regulator": "Qwen/Qwen2.5-14B-Instruct",
+}
+
+AGENT_MODELS_FALLBACK = {
+    "farmer":    "mistralai/Mistral-7B-Instruct-v0.3",
+    "logistics": "mistralai/Mistral-7B-Instruct-v0.3",
+    "energy":    "mistralai/Mistral-7B-Instruct-v0.3",
+    "market":    "mistralai/Mistral-7B-Instruct-v0.3",
+    "regulator": "mistralai/Mistral-7B-Instruct-v0.3",
+}
+```
+
+Featherless AI serves all models via an OpenAI-compatible API — only the `base_url` and `model` string change.
+
+### JSON extraction
+
+LLMs sometimes wrap JSON in markdown fences. The base agent handles this:
+
+```python
+# Strip ```json ... ``` fences
+if "```" in raw:
+    parts = raw.split("```")
+    for part in parts:
+        candidate = part.strip().lstrip("json").strip()
+        if candidate.startswith("{"):
+            raw = candidate
+            break
+
+# Find the first valid JSON object
+start = raw.find("{")
+end   = raw.rfind("}") + 1
+if start >= 0 and end > start:
+    raw = raw[start:end]
+```
+
+### System prompts
+
+Each agent's system prompt includes:
+1. Role description
+2. Explicit task list
+3. **Exact JSON schema** with example values — this significantly reduces hallucination and format errors
+4. Hard instruction: `Reply ONLY with valid JSON. No text before or after.`
+
+### Band platform mode
+
+Each agent has a `run_*_band_agent()` function that connects to the Band platform via WebSocket. Band SDK imports are deferred inside this function so they don't break the FastAPI pipeline when Band is not needed:
+
+```python
+async def run_farmer_band_agent():
+    from thenvoi import Agent  # deferred import
+    from thenvoi.adapters import AnthropicAdapter
+    from thenvoi.config import load_agent_config
+    ...
+```
+
+---
+
+## 6. Band Room Coordination
+
+### BandRoomState
+
+The shared state object that holds all agent outputs:
+
+```python
+class BandRoomState(BaseModel):
+    session_id: str
+    created_at: str
+    farmer:    Optional[FarmerPayload]    = None
+    logistics: Optional[LogisticsPayload] = None
+    energy:    Optional[EnergyPayload]    = None
+    market:    Optional[MarketPayload]    = None
+    regulator: Optional[RegulatorPayload] = None
+    conflicts: list[str] = []
+    debate_rounds: int = 0
+    final_decision_ready: bool = False
+```
+
+### BandCoordinator
+
+Manages the room state and audit trail:
+
+```python
+coordinator.receive("farmer", farmer_result)    # stores payload, logs action
+coordinator.receive("energy", energy_result)
+coordinator.detect_conflicts()                  # checks all 4 conflict patterns
+coordinator.generate_audit_report()            # returns full audit trail
+```
+
+Every `receive()` call appends to `audit_trail`:
+
+```json
+{
+  "agent": "farmer",
+  "action": "published",
+  "details": "payload_id=a3f7b2c1",
+  "timestamp": "2026-06-18T03:36:21.186Z"
+}
+```
+
+---
+
+## 7. Conflict Detection
+
+The coordinator checks four patterns:
+
+### Conflict 1: Logistics underestimates urgency
+
+```python
+if s.farmer.deficit_pct > 30 and s.logistics.logistics_risk_score < 0.3:
+    # Farmer says 34% deficit, Logistics says risk is low
+    # → Logistics may not know about the scale of the shortage
+```
+
+### Conflict 2: Price cuts during critical shortage
+
+```python
+if s.market.stock_level_days < 14:
+    for rec in s.market.price_recommendations:
+        if rec.recommended_price_usd < rec.current_price_usd:
+            # Market wants to cut prices, but stock is at 10 days
+            # → lower prices will increase demand and worsen the shortage
+```
+
+### Conflict 3: Critical energy, no reserve release
+
+```python
+if s.energy.shortage_alert == "critical" and not s.regulator.emergency_reserves_release:
+    # Energy crisis is critical but regulator isn't releasing reserves
+```
+
+### Conflict 4: Subsidies during speculation
+
+```python
+if s.market.speculation_detected and s.regulator.subsidy_plan:
+    # Market sees speculative activity, but subsidies will fuel it further
+```
+
+---
+
+## 8. Escalation Logic
+
+After the Regulator produces its output, `main.py` enforces hard escalation thresholds regardless of what the model decided:
+
+```python
+ESCALATION_THRESHOLDS = {
+    "regulator_confidence_min": 0.70,
+    "farmer_deficit_pct_max":   30.0,
+    "energy_shortage_critical": "critical",
+    "market_stock_days_min":    14.0,
+}
+
+# Enforced in RegulatorAgent.analyze():
+if payload.confidence_score < t["regulator_confidence_min"]:
+    payload.escalate_to_human = True
+    payload.escalation_reason = f"Confidence {payload.confidence_score:.2f} below threshold"
+
+if band_room_state.farmer.deficit_pct > t["farmer_deficit_pct_max"]:
+    payload.escalate_to_human = True
+    payload.escalation_reason = f"Deficit {deficit}% exceeds threshold 30%"
+
+if band_room_state.energy.shortage_alert == "critical":
+    payload.escalate_to_human = True
+    payload.escalation_reason = "Critical energy shortage — cascading food risk"
+
+if band_room_state.market.stock_level_days < t["market_stock_days_min"]:
+    payload.escalate_to_human = True
+    payload.escalation_reason = f"Stock {days}d below critical 14d"
+```
+
+The model's confidence score is advisory. The threshold enforcement is unconditional Python code.
+
+---
+
+## 9. Report Generation
+
+### Markdown report
+
+Generated at `reports/report_{session_id[:8]}.md`. Contains:
+- Executive summary with confidence score table
+- Agent findings (one section per agent)
+- Crop forecast table
+- Logistics route plan table
+- Price recommendations table
+- Policy decision with subsidy plan
+- Conflict list
+- Full audit trail
+
+### PDF generation
+
+```python
+def generate_pdf(session_id: str) -> str | None:
+    from weasyprint import HTML
+    md_text = md_path.read_text()
+    # Convert Markdown → HTML with regex
+    # Apply professional CSS (A4, Inter font, navy headers)
+    HTML(string=full_html).write_pdf(str(pdf_path))
+    return str(pdf_path)
+```
+
+The PDF endpoint:
+
+```python
+@app.get("/report/{session_id}/pdf")
+async def get_report_pdf(session_id: str):
+    pdf_path = generate_pdf(session_id)
+    return FileResponse(
+        path=pdf_path,
+        media_type="application/pdf",
+        filename=f"FoodEnergyMAS_report_{sid}.pdf",
+        headers={"Content-Disposition": f'attachment; filename="..."'},
+    )
+```
+
+### JSON data
+
+Raw structured data available at `/report/{session_id}/json` — all five agent payloads, conflicts, and audit trail.
+
+---
+
+## 10. API Reference
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/` | Health check |
+| GET | `/health` | Health check |
+| POST | `/run` | Synchronous pipeline run |
+| WS | `/ws` | Real-time pipeline with WebSocket streaming |
+| GET | `/reports` | List all reports (last 20) |
+| GET | `/report/{id}` | Markdown report |
+| GET | `/report/{id}/pdf` | PDF download |
+| GET | `/report/{id}/json` | Raw JSON data |
+
+### POST /run — Request
+
+```json
+{
+  "scenario": "Drought in Kazakhstan reduced wheat harvest by 25%. Energy prices up 40%."
+}
+```
+
+### POST /run — Response
+
+```json
+{
+  "session_id": "f67ef664-...",
+  "report_url": "http://localhost:8000/report/f67ef664/pdf",
+  "final_decision": "Activate emergency grain reserves...",
+  "escalate_to_human": false,
+  "confidence_score": 0.82,
+  "conflicts": [],
+  "events": [...]
+}
+```
+
+### GET /reports — Response
+
+```json
+[
+  {
+    "session_id": "f67ef664",
+    "url": "/report/f67ef664",
+    "pdf_url": "/report/f67ef664/pdf"
+  }
+]
+```
+
+---
+
+## 11. Data Schemas
+
+### FarmerPayload
+
+```python
+class CropForecast(BaseModel):
+    crop_type: str           # "wheat", "corn", "rice"
+    region: str
+    expected_yield_tons: float
+    vs_last_year_pct: float  # % change vs previous year
+    harvest_date: str
+
+class FarmerPayload(BaseModel):
+    agent: Literal["farmer"]
+    timestamp: str
+    message_id: str
+    crop_forecast: list[CropForecast]
+    risk_flags: list[str]        # ["drought_risk", "frost_risk"]
+    deficit_regions: list[str]   # regions with deficit > 20%
+    deficit_pct: float           # maximum regional deficit %
+    climate_risk_score: float    # 0.0 – 1.0
+    rag_sources: list[str]
+```
+
+### LogisticsPayload
+
+```python
+class Route(BaseModel):
+    from_region: str
+    to_region: str
+    transport_mode: str      # "rail", "road", "sea"
+    capacity_tons: float
+    estimated_days: int
+    cost_per_ton_usd: float
+
+class LogisticsPayload(BaseModel):
+    agent: Literal["logistics"]
+    route_plan: list[Route]
+    loss_estimate_pct: float
+    bottlenecks: list[str]
+    storage_capacity_available_tons: float
+    logistics_risk_score: float
+    rag_sources: list[str]
+```
+
+### EnergyPayload
+
+```python
+class EnergyPayload(BaseModel):
+    agent: Literal["energy"]
+    energy_price_usd_kwh: float
+    energy_price_trend: str      # "rising", "stable", "falling"
+    grid_load_pct: float         # 0–100
+    shortage_alert: str          # "none", "warning", "critical"
+    renewable_share_pct: float
+    impact_on_food_production: str
+    energy_risk_score: float
+    rag_sources: list[str]
+```
+
+### MarketPayload
+
+```python
+class PriceRecommendation(BaseModel):
+    commodity: str
+    current_price_usd: float
+    recommended_price_usd: float
+    rationale: str
+
+class MarketPayload(BaseModel):
+    agent: Literal["market"]
+    price_recommendations: list[PriceRecommendation]
+    demand_signal: str       # "high", "normal", "low"
+    demand_trend: str        # "increasing", "stable", "decreasing"
+    stock_level_days: float
+    inflation_risk: str      # "low", "medium", "high"
+    speculation_detected: bool
+    market_risk_score: float
+    rag_sources: list[str]
+```
+
+### RegulatorPayload
+
+```python
+class SubsidyPlan(BaseModel):
+    target: str
+    amount_usd_million: float
+    duration_months: int
+    rationale: str
+
+class RegulatorPayload(BaseModel):
+    agent: Literal["regulator"]
+    policy_recommendation: str
+    subsidy_plan: list[SubsidyPlan]
+    import_trigger: bool
+    import_details: Optional[str]
+    price_controls: bool
+    emergency_reserves_release: bool
+    confidence_score: float        # 0.0 – 1.0
+    escalate_to_human: bool
+    escalation_reason: Optional[str]
+    conflicts_detected: list[str]
+    rag_sources: list[str]
+```
+
+---
+
+## 12. Full Code Listing
+
+### backend/schemas.py
+
+```python
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
+from datetime import datetime
+import uuid
+
+class RiskLevel(str):
+    LOW = "low"; MEDIUM = "medium"; HIGH = "high"; CRITICAL = "critical"
+
+class CropForecast(BaseModel):
+    crop_type: str; region: str
+    expected_yield_tons: float; vs_last_year_pct: float; harvest_date: str
+
+class FarmerPayload(BaseModel):
+    agent: Literal["farmer"] = "farmer"
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    message_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    crop_forecast: list[CropForecast]; risk_flags: list[str]
+    deficit_regions: list[str]; deficit_pct: float
+    climate_risk_score: float; rag_sources: list[str] = []
+
+class Route(BaseModel):
+    from_region: str; to_region: str; transport_mode: str
+    capacity_tons: float; estimated_days: int; cost_per_ton_usd: float
+
+class LogisticsPayload(BaseModel):
+    agent: Literal["logistics"] = "logistics"
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    message_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    route_plan: list[Route]; loss_estimate_pct: float
+    bottlenecks: list[str]; storage_capacity_available_tons: float
+    logistics_risk_score: float; rag_sources: list[str] = []
+
+class EnergyPayload(BaseModel):
+    agent: Literal["energy"] = "energy"
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    message_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    energy_price_usd_kwh: float; energy_price_trend: str
+    grid_load_pct: float; shortage_alert: str; renewable_share_pct: float
+    impact_on_food_production: str; energy_risk_score: float; rag_sources: list[str] = []
+
+class PriceRecommendation(BaseModel):
+    commodity: str; current_price_usd: float
+    recommended_price_usd: float; rationale: str
+
+class MarketPayload(BaseModel):
+    agent: Literal["market"] = "market"
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    message_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    price_recommendations: list[PriceRecommendation]
+    demand_signal: str; demand_trend: str; stock_level_days: float
+    inflation_risk: str; speculation_detected: bool
+    market_risk_score: float; rag_sources: list[str] = []
+
+class SubsidyPlan(BaseModel):
+    target: str; amount_usd_million: float; duration_months: int; rationale: str
+
+class RegulatorPayload(BaseModel):
+    agent: Literal["regulator"] = "regulator"
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    message_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    policy_recommendation: str; subsidy_plan: list[SubsidyPlan]
+    import_trigger: bool; import_details: Optional[str] = None
+    price_controls: bool; emergency_reserves_release: bool
+    confidence_score: float; escalate_to_human: bool
+    escalation_reason: Optional[str] = None
+    conflicts_detected: list[str] = []; rag_sources: list[str] = []
+
+class BandRoomState(BaseModel):
+    session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    farmer: Optional[FarmerPayload] = None
+    logistics: Optional[LogisticsPayload] = None
+    energy: Optional[EnergyPayload] = None
+    market: Optional[MarketPayload] = None
+    regulator: Optional[RegulatorPayload] = None
+    conflicts: list[str] = []; debate_rounds: int = 0; final_decision_ready: bool = False
+```
+
+### backend/vector_db/setup.py — singleton pattern
+
+```python
+import chromadb
+from chromadb.utils import embedding_functions
+
+_client = None
+_ef = None
+_collections: dict = {}
+
+def get_chroma_client():
+    global _client
+    if _client is None:
+        _client = chromadb.PersistentClient(path="./chroma_db")
+    return _client
+
+def get_embedding_function():
+    global _ef
+    if _ef is None:
+        _ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name="all-MiniLM-L6-v2"
+        )
+    return _ef
+
+def get_or_create_collection(agent_name: str):
+    global _collections
+    if agent_name in _collections:
+        return _collections[agent_name]
+    collection = get_chroma_client().get_or_create_collection(
+        name=f"{agent_name}s_collection",
+        embedding_function=get_embedding_function(),
+        metadata={"hnsw:space": "cosine"},
+    )
+    _collections[agent_name] = collection
+    return collection
+
+def query_collection(agent_name, queries, n_results=3):
+    col = get_or_create_collection(agent_name)
+    if col.count() == 0:
+        return []
+    results = col.query(query_texts=queries[:2], n_results=n_results,
+                        include=["documents", "distances"])
+    docs, seen = [], set()
+    for doc_list, dist_list in zip(results["documents"], results["distances"]):
+        for doc, dist in zip(doc_list, dist_list):
+            if doc not in seen and dist < 0.75:
+                docs.append(doc); seen.add(doc)
+    return docs
+```
+
+### backend/agents/base_agent.py — core execution
+
+```python
+class BaseAgent:
+    def __init__(self, agent_name: str):
+        self.agent_name = agent_name
+        self.model = AGENT_MODELS[agent_name]
+        self.model_fallback = AGENT_MODELS_FALLBACK[agent_name]
+        self.system_prompt = SYSTEM_PROMPTS[agent_name]
+        self.rag_queries = RAG_QUERIES[agent_name]
+        self.llm = AsyncOpenAI(
+            api_key=os.getenv("FEATHERLESS_API_KEY"),
+            base_url="https://api.featherless.ai/v1",
+        )
+
+    async def analyze(self, scenario: str) -> dict:
+        sources, context = await self.get_rag_context()
+        result = await self.run_llm(
+            f"Scenario: {scenario}\nReturn ONLY JSON. rag_sources: {sources}",
+            context
+        )
+        result["rag_sources"] = sources
+        return result
+
+    async def run_llm(self, user_message: str, context: str) -> dict:
+        system = f"{self.system_prompt}\n\nKNOWLEDGE BASE:\n{context}"
+        raw = None
+        for model in [self.model, self.model_fallback]:
+            try:
+                response = await self.llm.chat.completions.create(
+                    model=model, temperature=0.2, max_tokens=2048,
+                    messages=[{"role":"system","content":system},
+                               {"role":"user","content":user_message}]
+                )
+                raw = response.choices[0].message.content.strip()
+                break
+            except Exception as e:
+                logger.warning(f"[{self.agent_name}] {model} failed: {e}")
+        if raw is None:
+            raise RuntimeError(f"[{self.agent_name}] All models failed")
+        # extract JSON
+        start, end = raw.find("{"), raw.rfind("}") + 1
+        return json.loads(raw[start:end])
+```
+
+### backend/band/coordinator.py — conflict detection
+
+```python
+class BandCoordinator:
+    def detect_conflicts(self) -> list[str]:
+        conflicts = []
+        s = self.state
+        # 1. Logistics underestimates deficit urgency
+        if s.farmer and s.logistics:
+            if s.farmer.deficit_pct > 30 and s.logistics.logistics_risk_score < 0.3:
+                conflicts.append(f"Farmer {s.farmer.deficit_pct}% deficit vs low logistics risk")
+        # 2. Price cuts during critical shortage
+        if s.market and s.market.stock_level_days < 14:
+            for rec in s.market.price_recommendations:
+                if rec.recommended_price_usd < rec.current_price_usd:
+                    conflicts.append(f"Price cut on {rec.commodity} while stock={s.market.stock_level_days}d")
+        # 3. Critical energy, no reserve release
+        if s.energy and s.regulator:
+            if s.energy.shortage_alert == "critical" and not s.regulator.emergency_reserves_release:
+                conflicts.append("Critical energy shortage without reserve release")
+        # 4. Subsidies during speculation
+        if s.market and s.regulator:
+            if s.market.speculation_detected and s.regulator.subsidy_plan:
+                conflicts.append("Subsidies proposed during active speculation")
+        self.state.conflicts = conflicts
+        return conflicts
+```
+
+---
+
+## Appendix: Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `FEATHERLESS_API_KEY` | ✅ Yes | Featherless AI API key |
+| `FEATHERLESS_BASE_URL` | No | Default: `https://api.featherless.ai/v1` |
+| `THENVOI_REST_URL` | Band mode only | `https://app.thenvoi.com/` |
+| `THENVOI_WS_URL` | Band mode only | `wss://app.thenvoi.com/api/v1/socket/websocket` |
+| `CHROMA_PERSIST_DIR` | No | Default: `./chroma_db` |
+| `BACKEND_HOST` | No | Default: `0.0.0.0` |
+| `BACKEND_PORT` | No | Default: `8000` |
+
+## Appendix: Escalation Thresholds
+
+| Threshold | Value | Trigger |
+|---|---|---|
+| `regulator_confidence_min` | 0.70 | Escalate if confidence < 70% |
+| `farmer_deficit_pct_max` | 30.0 | Escalate if regional deficit > 30% |
+| `energy_shortage_critical` | "critical" | Escalate if shortage_alert = critical |
+| `market_stock_days_min` | 14.0 | Escalate if stock < 14 days |
+
+All thresholds are configurable in `backend/config.py`.
+
+---
+
+*FoodEnergyMAS — lablab.ai Hackathon, Band AI Track, June 2026*  
+*Author: Ansar Tleubayev*  
+*Repository: https://github.com/iencislennon/lablabhack*
