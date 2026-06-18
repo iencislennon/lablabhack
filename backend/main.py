@@ -13,7 +13,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 from loguru import logger
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse, FileResponse
+from fastapi.responses import PlainTextResponse, FileResponse, Response
 from pydantic import BaseModel
 
 from backend.agents.farmer import FarmerAgent
@@ -22,7 +22,7 @@ from backend.agents.energy import EnergyAgent
 from backend.agents.market import MarketAgent
 from backend.agents.regulator import RegulatorAgent
 from backend.band.coordinator import BandCoordinator
-from backend.report import generate_report, generate_pdf
+from backend.report import generate_report, generate_pdf_bytes, get_report_md, get_report_json
 from backend.schemas import BandRoomState
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
@@ -202,39 +202,34 @@ async def run_sync(request: RunRequest):
 
 
 @app.get("/report/{session_id}", response_class=PlainTextResponse)
-async def get_report_md(session_id: str):
-    sid  = session_id[:8]
-    path = REPORTS_DIR / f"report_{sid}.md"
-    if not path.exists():
+async def get_report_md_endpoint(session_id: str):
+    md = get_report_md(session_id)
+    if not md:
         return PlainTextResponse("Report not found", status_code=404)
-    return PlainTextResponse(path.read_text(encoding="utf-8"), media_type="text/markdown")
+    return PlainTextResponse(md, media_type="text/markdown")
 
 
 @app.get("/report/{session_id}/pdf")
 async def get_report_pdf(session_id: str):
-    sid      = session_id[:8]
-    pdf_path = generate_pdf(session_id)
-    if not pdf_path:
-        return PlainTextResponse(
-            "PDF generation requires weasyprint. Run: pip install weasyprint",
-            status_code=501,
-        )
+    """Generate PDF in-memory and stream to browser as download."""
+    sid       = session_id[:8]
+    pdf_bytes = generate_pdf_bytes(session_id)
+    if pdf_bytes is None:
+        return PlainTextResponse("Report not found or PDF generation failed", status_code=404)
     filename = f"CrisisNet_report_{sid}.pdf"
-    return FileResponse(
-        path=pdf_path,
+    return Response(
+        content=pdf_bytes,
         media_type="application/pdf",
-        filename=filename,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}""},
     )
 
 
 @app.get("/report/{session_id}/json")
-async def get_report_json(session_id: str):
-    sid  = session_id[:8]
-    path = REPORTS_DIR / f"report_{sid}.json"
-    if not path.exists():
+async def get_report_json_endpoint(session_id: str):
+    data = get_report_json(session_id)
+    if not data:
         return {"error": "Report not found"}
-    return json.loads(path.read_text(encoding="utf-8"))
+    return data
 
 
 @app.get("/reports")
