@@ -15,4 +15,4 @@ band-sdk[claude-sdk]==1.0.0
 
 # Utils
 loguru>=0.7.2
-rich>=13.8.1weasyprint
+rich>=13.8.1
