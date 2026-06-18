@@ -4,6 +4,7 @@ main.py — FastAPI orchestrator.
 
 import asyncio
 import json
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from dotenv import load_dotenv
@@ -26,6 +27,13 @@ from backend.schemas import BandRoomState
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
 REPORTS_DIR.mkdir(exist_ok=True)
+
+# Detect public backend URL (Render sets RENDER_EXTERNAL_URL automatically)
+BACKEND_URL = (
+    os.getenv("RENDER_EXTERNAL_URL")        # set by Render automatically
+    or os.getenv("BACKEND_PUBLIC_URL")      # manual override
+    or "http://localhost:8000"              # local fallback
+).rstrip("/")
 
 
 # ── WebSocket manager ──────────────────────────────────────────────────────────
@@ -59,14 +67,24 @@ manager = ConnectionManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 FoodEnergyMAS starting up...")
+    logger.info(f"🚀 CrisisNet starting up | public URL: {BACKEND_URL}")
+
+    # Auto-seed ChromaDB on startup if env var is set (useful on Render)
+    if os.getenv("SEED_ON_STARTUP", "").lower() in ("1", "true", "yes"):
+        logger.info("🌱 SEED_ON_STARTUP=true — seeding ChromaDB...")
+        try:
+            from backend.vector_db.seed_data import seed_all
+            seed_all()
+        except Exception as e:
+            logger.warning(f"Seeding failed (non-fatal): {e}")
+
     yield
-    logger.info("👋 FoodEnergyMAS shutting down")
+    logger.info("👋 CrisisNet shutting down")
 
 
 app = FastAPI(
-    title="FoodEnergyMAS",
-    description="Multi-Agent System for Food & Energy Security",
+    title="CrisisNet",
+    description="Multi-Agent Crisis Intelligence System",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -134,19 +152,19 @@ async def run_pipeline(scenario: str, broadcast) -> BandRoomState:
     logger.info(f"📄 Report saved: {report_path}")
 
     await broadcast({
-        "event":             "pipeline_complete",
-        "final_decision":    regulator_result.policy_recommendation,
-        "escalate_to_human": regulator_result.escalate_to_human,
-        "escalation_reason": regulator_result.escalation_reason,
-        "confidence_score":  regulator_result.confidence_score,
-        "import_trigger":    regulator_result.import_trigger,
-        "price_controls":    regulator_result.price_controls,
+        "event":              "pipeline_complete",
+        "final_decision":     regulator_result.policy_recommendation,
+        "escalate_to_human":  regulator_result.escalate_to_human,
+        "escalation_reason":  regulator_result.escalation_reason,
+        "confidence_score":   regulator_result.confidence_score,
+        "import_trigger":     regulator_result.import_trigger,
+        "price_controls":     regulator_result.price_controls,
         "emergency_reserves": regulator_result.emergency_reserves_release,
-        "subsidy_plan":      [s.model_dump() for s in regulator_result.subsidy_plan],
-        "conflicts":         conflicts,
-        "session_id":        session_id,
-        "report_url":        f"http://localhost:8000/report/{session_id}/pdf",
-        "audit_trail":       audit,
+        "subsidy_plan":       [s.model_dump() for s in regulator_result.subsidy_plan],
+        "conflicts":          conflicts,
+        "session_id":         session_id,
+        "report_url":         f"{BACKEND_URL}/report/{session_id}/pdf",
+        "audit_trail":        audit,
     })
 
     logger.info("✅ Pipeline complete")
@@ -157,7 +175,7 @@ async def run_pipeline(scenario: str, broadcast) -> BandRoomState:
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "service": "FoodEnergyMAS"}
+    return {"status": "ok", "service": "CrisisNet", "backend_url": BACKEND_URL}
 
 
 @app.get("/health")
@@ -174,7 +192,7 @@ async def run_sync(request: RunRequest):
     sid = state.session_id
     return {
         "session_id":        sid,
-        "report_url":        f"http://localhost:8000/report/{sid}/pdf",
+        "report_url":        f"{BACKEND_URL}/report/{sid}/pdf",
         "final_decision":    state.regulator.policy_recommendation if state.regulator else None,
         "escalate_to_human": state.regulator.escalate_to_human if state.regulator else False,
         "confidence_score":  state.regulator.confidence_score if state.regulator else 0,
@@ -185,7 +203,6 @@ async def run_sync(request: RunRequest):
 
 @app.get("/report/{session_id}", response_class=PlainTextResponse)
 async def get_report_md(session_id: str):
-    """Return the Markdown report."""
     sid  = session_id[:8]
     path = REPORTS_DIR / f"report_{sid}.md"
     if not path.exists():
@@ -195,31 +212,24 @@ async def get_report_md(session_id: str):
 
 @app.get("/report/{session_id}/pdf")
 async def get_report_pdf(session_id: str):
-    """Generate and stream PDF — triggers browser download."""
     sid      = session_id[:8]
     pdf_path = generate_pdf(session_id)
-
     if not pdf_path:
         return PlainTextResponse(
             "PDF generation requires weasyprint. Run: pip install weasyprint",
             status_code=501,
         )
-
-    filename = f"FoodEnergyMAS_report_{sid}.pdf"
+    filename = f"CrisisNet_report_{sid}.pdf"
     return FileResponse(
         path=pdf_path,
         media_type="application/pdf",
         filename=filename,
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Cache-Control": "no-cache",
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
 @app.get("/report/{session_id}/json")
 async def get_report_json(session_id: str):
-    """Return raw JSON data."""
     sid  = session_id[:8]
     path = REPORTS_DIR / f"report_{sid}.json"
     if not path.exists():
@@ -229,13 +239,12 @@ async def get_report_json(session_id: str):
 
 @app.get("/reports")
 async def list_reports():
-    """List all available reports."""
     files = sorted(REPORTS_DIR.glob("report_*.md"), reverse=True)
     return [
         {
             "session_id": f.stem.replace("report_", ""),
             "url":        f"/report/{f.stem.replace('report_', '')}",
-            "pdf_url":    f"/report/{f.stem.replace('report_', '')}/pdf",
+            "pdf_url":    f"{BACKEND_URL}/report/{f.stem.replace('report_', '')}/pdf",
         }
         for f in files[:20]
     ]
@@ -243,7 +252,6 @@ async def list_reports():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket — streams pipeline events in real time."""
     await manager.connect(websocket)
     try:
         while True:

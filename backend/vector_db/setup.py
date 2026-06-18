@@ -1,7 +1,7 @@
 """
 vector_db/setup.py — ChromaDB collection initialisation for each agent.
-Client, embedding function, and collections are cached as singletons
-to avoid reloading the embedding model on every agent call.
+Uses DefaultEmbeddingFunction (onnxruntime-based, ~50MB) instead of
+SentenceTransformer (torch-based, ~1.5GB) to stay within Render free tier memory.
 """
 
 import chromadb
@@ -9,7 +9,6 @@ import os
 from chromadb.utils import embedding_functions
 from loguru import logger
 
-# ── Singletons — created once, reused forever ──────────────────────────────────
 _client = None
 _ef = None
 _collections: dict = {}
@@ -28,10 +27,10 @@ def get_chroma_client() -> chromadb.PersistentClient:
 def get_embedding_function():
     global _ef
     if _ef is None:
-        _ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
-        )
-        logger.info("Embedding model loaded (all-MiniLM-L6-v2)")
+        # DefaultEmbeddingFunction uses onnxruntime (~50MB) not torch (~1.5GB)
+        # Safe for Render free tier (512MB RAM limit)
+        _ef = embedding_functions.DefaultEmbeddingFunction()
+        logger.info("Embedding function loaded (DefaultEmbeddingFunction / onnxruntime)")
     return _ef
 
 
@@ -64,10 +63,7 @@ def get_or_create_collection(agent_name: str) -> chromadb.Collection:
 
 
 def query_collection(agent_name: str, queries: list[str], n_results: int = 3) -> list[str]:
-    """
-    RAG query — returns relevant document texts.
-    n_results reduced to 3 (was 5) for faster response with same quality.
-    """
+    """RAG query — returns relevant document texts."""
     collection = get_or_create_collection(agent_name)
 
     if collection.count() == 0:
@@ -75,7 +71,7 @@ def query_collection(agent_name: str, queries: list[str], n_results: int = 3) ->
         return []
 
     results = collection.query(
-        query_texts=queries[:2],  # limit to 2 queries for speed
+        query_texts=queries[:2],
         n_results=min(n_results, collection.count()),
         include=["documents", "distances"],
     )
