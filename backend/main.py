@@ -220,7 +220,7 @@ async def get_report_pdf(session_id: str):
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}""},
+        headers={"Content-Disposition": "attachment; filename=" + chr(34) + filename + chr(34)},
     )
 
 
