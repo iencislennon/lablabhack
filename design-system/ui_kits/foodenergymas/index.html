@@ -1,11 +1,11 @@
-<!-- @dsCard group="Dashboard" viewport="1440x900" name="FoodEnergyMAS Dashboard" subtitle="Multi-agent food & energy security — live pipeline view" -->
+<!-- @dsCard group="Dashboard" viewport="1440x900" name="CrisisNet Dashboard" subtitle="Multi-agent food & energy security — live pipeline view" -->
 <!-- @startingPoint section="Dashboard" subtitle="Multi-agent food & energy security assessment" viewport="1440x900" -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FoodEnergyMAS — Security Assessment</title>
+<title>CrisisNet — Security Assessment</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
@@ -76,7 +76,7 @@ const mkMock = scenario => [
   { ms:9400,  d:{ event:'phase', phase:4, label:'Regulator making decision' } },
   { ms:12000, d:{ event:'agent_done', agent:'regulator', data:{ policy_recommendation:'Emergency import authorized.', confidence_score:0.66, escalate_to_human:true, import_trigger:true, price_controls:true, emergency_reserves_release:true } } },
   { ms:12400, d:{ event:'phase', phase:5, label:'Complete' } },
-  { ms:12800, d:{ event:'pipeline_complete', final_decision:'Immediate emergency grain import of 180,000 MT to offset North Plains deficit. Implement temporary price controls on wheat and bread products for 90 days. Release 15% of strategic energy reserves to support agricultural operations. Activate regional food distribution hubs in Eastern Province.', escalate_to_human:true, escalation_reason:'Regional deficit at 34.2% exceeds the 30% escalation threshold. Confidence score of 0.66 is below minimum 0.70, driven by unresolved market-farmer price trajectory conflict.', confidence_score:0.66, import_trigger:true, price_controls:true, emergency_reserves:true, subsidy_plan:[{ target:'wheat_farmers', amount_usd_million:45.0, duration_months:6, rationale:'Offset climate-driven yield losses in North Plains' },{ target:'fuel_subsidies', amount_usd_million:28.5, duration_months:3, rationale:'Reduce irrigation cost burden on smallholders' }], conflicts:['Market vs farmer price signal conflict','Logistics bottleneck vs high demand signal'], session_id:'ses_demo_'+Date.now().toString(36), report_url:'http://localhost:8000/report/ses_demo' } },
+  { ms:12800, d:{ event:'pipeline_complete', final_decision:'Immediate emergency grain import of 180,000 MT to offset North Plains deficit. Implement temporary price controls on wheat and bread products for 90 days. Release 15% of strategic energy reserves to support agricultural operations. Activate regional food distribution hubs in Eastern Province.', escalate_to_human:true, escalation_reason:'Regional deficit at 34.2% exceeds the 30% escalation threshold. Confidence score of 0.66 is below minimum 0.70, driven by unresolved market-farmer price trajectory conflict.', confidence_score:0.66, import_trigger:true, price_controls:true, emergency_reserves:true, subsidy_plan:[{ target:'wheat_farmers', amount_usd_million:45.0, duration_months:6, rationale:'Offset climate-driven yield losses in North Plains' },{ target:'fuel_subsidies', amount_usd_million:28.5, duration_months:3, rationale:'Reduce irrigation cost burden on smallholders' }], conflicts:['Market vs farmer price signal conflict','Logistics bottleneck vs high demand signal'], session_id:'ses_demo_'+Date.now().toString(36), report_url:'https://crisisnet-rf4u.onrender.com/report/ses_demo' } },
 ];
 
 /* ─── Agent metric helpers ─────────────────────────────────────────────────── */
@@ -104,9 +104,9 @@ function Sidebar({ currentPhase, agentStates }) {
     React.createElement('div', { style:{ padding:'20px 16px 12px' } },
       React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:8, marginBottom:3 } },
         React.createElement('i', { className:'ti ti-leaf', style:{ fontSize:16, color:'#6DCFB0' } }),
-        React.createElement('span', { style:{ fontSize:15, fontWeight:500, color:'#f8fafc' } }, 'FoodEnergyMAS')
+        React.createElement('span', { style:{ fontSize:15, fontWeight:500, color:'#f8fafc' } }, 'CrisisNet')
       ),
-      React.createElement('div', { style:{ fontSize:11, color:'#475569', paddingLeft:24 } }, 'Food & Energy Security')
+      React.createElement('div', { style:{ fontSize:11, color:'#475569', paddingLeft:24 } }, 'Multi-Agent Crisis Intelligence')
     ),
     React.createElement('div', { style:{ height:1, background:'#1e2d42', margin:'0 16px 8px' } }),
     React.createElement('div', { style:{ fontSize:10, fontWeight:500, color:'#334155', letterSpacing:'0.07em', textTransform:'uppercase', padding:'8px 16px 6px' } }, 'Pipeline'),
@@ -274,7 +274,7 @@ function FinalDecision({ decision }) {
       )
     ),
     React.createElement('div', { style:{ display:'flex', gap:8, alignItems:'center' } },
-      decision.report_url && React.createElement('a', { href:decision.report_url ? decision.report_url + '/pdf' : '#', target:'_blank', download:'FoodEnergyMAS_report.pdf', style:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', background:'#0f1623', color:'#fff', fontSize:12, fontWeight:500, borderRadius:6, textDecoration:'none' } },
+      decision.report_url && React.createElement('a', { href:decision.report_url ? decision.report_url + '/pdf' : '#', target:'_blank', download:'CrisisNet_report.pdf', style:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', background:'#0f1623', color:'#fff', fontSize:12, fontWeight:500, borderRadius:6, textDecoration:'none' } },
         React.createElement('i', { className:'ti ti-download', style:{ fontSize:12 } }),
         'Download report'
       ),
@@ -396,7 +396,7 @@ function Dashboard() {
     setPipelineState('running');
     timersRef.current.forEach(clearTimeout); timersRef.current = [];
     try {
-      const ws = new WebSocket('ws://localhost:8000/ws');
+      const ws = new WebSocket('wss://crisisnet-rf4u.onrender.com/ws');
       wsRef.current = ws;
       ws.onopen  = () => ws.send(JSON.stringify({ scenario }));
       ws.onmessage = e => { try { handleEvent(JSON.parse(e.data)); } catch {} };
