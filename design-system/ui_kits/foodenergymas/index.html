@@ -35,7 +35,8 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
-/* ─── Constants ────────────────────────────────────────────────────────────── */
+const BACKEND = 'https://crisisnet-rf4u.onrender.com';
+
 const AGENT_META = {
   farmer:    { label:'Farmer',    color:'#0F6E56', bg:'#E1F5EE', border:'#6DCFB0', icon:'ti-wheat',         model:'Mixtral-8x7B-Instruct' },
   logistics: { label:'Logistics', color:'#085041', bg:'#C8EDE0', border:'#4DB896', icon:'ti-truck',         model:'Llama-3.3-70B-Instruct' },
@@ -53,7 +54,7 @@ const PHASE_DEFS = [
 ];
 
 const SCENARIOS = [
-  'Regional drought assessment — North Africa grain belt, Q3 2026',
+  'Akmola and Kostanay oblasts, Kazakhstan — Q3 2024 harvest assessment. Wheat yields have fallen to 1.4 t/ha against a 5-year average of 1.8 t/ha following severe drought in May and June. Akmola oblast is reporting a 22% production deficit, Kostanay 18%. Prodkorporatsiya strategic reserves stand at 1.5 million tonnes — only 23 days of national consumption, well below the FAO minimum of 60 days. The Dostyk rail corridor is experiencing 8-day congestion delays. Kazakhstan northern grid is at 82% utilisation with winter demand approaching, equipment wear at 65%. Wheat is at $195 per tonne on the Astana exchange with stable demand and no speculative activity. Assess the situation and recommend immediate policy measures.',
   'Post-flood logistics disruption — Lower Mekong Delta corridor',
   'Energy price spike and its cascading impact on grain production',
   'Emergency food import authorization — 180,000 MT wheat deficit',
@@ -62,43 +63,40 @@ const SCENARIOS = [
 const RISK_COLOR = { low:'#38a169', medium:'#dd6b20', high:'#e53e3e', critical:'#e53e3e' };
 const riskLevel = s => s >= 0.7 ? 'high' : s >= 0.4 ? 'medium' : 'low';
 
-/* ─── Mock simulation ──────────────────────────────────────────────────────── */
 const mkMock = scenario => [
   { ms:700,   d:{ event:'pipeline_start', scenario } },
   { ms:1200,  d:{ event:'phase', phase:1, label:'Independent agents' } },
-  { ms:2900,  d:{ event:'agent_done', agent:'farmer',    data:{ deficit_pct:34.2, climate_risk_score:0.78, deficit_regions:['North Plains','Eastern Province'], risk_flags:['drought_risk','frost_risk'], rag_sources:['hist_harvest_2019','climate_risk_q2'] } } },
-  { ms:3700,  d:{ event:'agent_done', agent:'energy',    data:{ energy_price_usd_kwh:0.187, energy_price_trend:'rising', grid_load_pct:87.3, shortage_alert:'warning', renewable_share_pct:24.1, energy_risk_score:0.69, impact_on_food_production:'Elevated grid load constrains irrigation pumps during peak hours.' } } },
+  { ms:2900,  d:{ event:'agent_done', agent:'farmer',    data:{ deficit_pct:22.0, climate_risk_score:0.72, deficit_regions:['Akmola','Kostanay'], risk_flags:['drought_risk','fertilizer_shortage'], rag_sources:['f001','f002'] } } },
+  { ms:3700,  d:{ event:'agent_done', agent:'energy',    data:{ energy_price_usd_kwh:0.06, energy_price_trend:'stable', grid_load_pct:82.0, shortage_alert:'warning', renewable_share_pct:8.0, energy_risk_score:0.55, impact_on_food_production:'Northern grid at 82% with winter demand approaching. Irrigation costs stable but risk of outages.' } } },
   { ms:4300,  d:{ event:'phase', phase:2, label:'Dependent agents' } },
-  { ms:6100,  d:{ event:'agent_done', agent:'logistics', data:{ loss_estimate_pct:12.4, logistics_risk_score:0.61, bottlenecks:['port_odessa'], storage_capacity_available_tons:45000 } } },
-  { ms:7100,  d:{ event:'agent_done', agent:'market',    data:{ demand_signal:'high', demand_trend:'increasing', stock_level_days:18.5, inflation_risk:'high', market_risk_score:0.74, speculation_detected:true } } },
-  { ms:7700,  d:{ event:'phase', phase:3, label:'Band Room — conflict detection' } },
-  { ms:8800,  d:{ event:'band_room_conflicts', conflicts:['Market recommends price cuts while farmer signals supply deficit — contradictory signals on wheat pricing strategy','Logistics bottleneck at port_odessa conflicts with market demand signal "high" — supply chain cannot meet stated demand levels'], count:2 } },
-  { ms:9400,  d:{ event:'phase', phase:4, label:'Regulator making decision' } },
-  { ms:12000, d:{ event:'agent_done', agent:'regulator', data:{ policy_recommendation:'Emergency import authorized.', confidence_score:0.66, escalate_to_human:true, import_trigger:true, price_controls:true, emergency_reserves_release:true } } },
-  { ms:12400, d:{ event:'phase', phase:5, label:'Complete' } },
-  { ms:12800, d:{ event:'pipeline_complete', final_decision:'Immediate emergency grain import of 180,000 MT to offset North Plains deficit. Implement temporary price controls on wheat and bread products for 90 days. Release 15% of strategic energy reserves to support agricultural operations. Activate regional food distribution hubs in Eastern Province.', escalate_to_human:true, escalation_reason:'Regional deficit at 34.2% exceeds the 30% escalation threshold. Confidence score of 0.66 is below minimum 0.70, driven by unresolved market-farmer price trajectory conflict.', confidence_score:0.66, import_trigger:true, price_controls:true, emergency_reserves:true, subsidy_plan:[{ target:'wheat_farmers', amount_usd_million:45.0, duration_months:6, rationale:'Offset climate-driven yield losses in North Plains' },{ target:'fuel_subsidies', amount_usd_million:28.5, duration_months:3, rationale:'Reduce irrigation cost burden on smallholders' }], conflicts:['Market vs farmer price signal conflict','Logistics bottleneck vs high demand signal'], session_id:'ses_demo_'+Date.now().toString(36), report_url:'https://crisisnet-rf4u.onrender.com/report/ses_demo' } },
+  { ms:6100,  d:{ event:'agent_done', agent:'logistics', data:{ loss_estimate_pct:8.5, logistics_risk_score:0.45, bottlenecks:['Dostyk border crossing'], storage_capacity_available_tons:2500000 } } },
+  { ms:7100,  d:{ event:'agent_done', agent:'market',    data:{ demand_signal:'normal', demand_trend:'stable', stock_level_days:23.0, inflation_risk:'medium', market_risk_score:0.48, speculation_detected:false, price_recommendations:[{commodity:'wheat',current_price_usd:195,recommended_price_usd:195,rationale:'Market stable, no intervention needed'}] } } },
+  { ms:7700,  d:{ event:'phase', phase:3, label:'Conflict detection' } },
+  { ms:8400,  d:{ event:'band_room_conflicts', conflicts:[], count:0 } },
+  { ms:8800,  d:{ event:'phase', phase:4, label:'Regulator decision' } },
+  { ms:11500, d:{ event:'agent_done', agent:'regulator', data:{ policy_recommendation:'Release Prodkorporatsiya reserves. Negotiate duty-free wheat import from Russia (300k tonnes). Subsidise irrigation electricity by 30%.', confidence_score:0.80, escalate_to_human:false, import_trigger:true, price_controls:false, emergency_reserves_release:true } } },
+  { ms:11800, d:{ event:'phase', phase:5, label:'Complete' } },
+  { ms:12200, d:{ event:'pipeline_complete', final_decision:'Release Prodkorporatsiya reserves immediately (1.5M tonnes). Negotiate duty-free wheat import corridor from Russia (300k tonnes via Dostyk). Subsidise irrigation electricity by 30% for the winter season. Target reserve rebuild to 60-day FAO minimum by Q2 2025.', escalate_to_human:false, escalation_reason:null, confidence_score:0.80, import_trigger:true, price_controls:false, emergency_reserves:true, subsidy_plan:[{ target:'irrigation_electricity', amount_usd_million:45.0, duration_months:6, rationale:'Offset 40% energy cost increase to protect harvest yields.' }], conflicts:[], session_id:'ses_demo_'+Date.now().toString(36), report_url: BACKEND + '/report/ses_demo/pdf' } },
 ];
 
-/* ─── Agent metric helpers ─────────────────────────────────────────────────── */
 const agentMetrics = (agent, d) => {
   if (!d) return [];
   const fmt = (v, suffix='') => v != null ? `${typeof v==='number' ? v % 1 ? v.toFixed(2) : v : v}${suffix}` : '—';
   switch (agent) {
-    case 'farmer':    return [{ i:'ti-alert-triangle', l:'Max deficit',   v:fmt(d.deficit_pct,'%') },{ i:'ti-cloud-rain', l:'Climate risk', v:fmt(d.climate_risk_score) },{ i:'ti-map-pin', l:'Deficit regions', v:(d.deficit_regions||[]).slice(0,2).join(', ')||'—' }];
-    case 'logistics': return [{ i:'ti-package', l:'Chain loss', v:fmt(d.loss_estimate_pct,'%') },{ i:'ti-alert-triangle', l:'Bottleneck', v:(d.bottlenecks||[]).slice(0,1)[0]||'None' },{ i:'ti-database', l:'Storage avail.', v:d.storage_capacity_available_tons ? `${(d.storage_capacity_available_tons/1000).toFixed(0)}k t` : '—' }];
-    case 'energy':    return [{ i:'ti-currency-dollar', l:'Price / kWh', v:`$${fmt(d.energy_price_usd_kwh)}` },{ i:'ti-activity', l:'Grid load', v:fmt(d.grid_load_pct,'%') },{ i:'ti-alert-triangle', l:'Alert', v:d.shortage_alert||'none' }];
-    case 'market':    return [{ i:'ti-trending-up', l:'Demand signal', v:d.demand_signal||'—' },{ i:'ti-calendar', l:'Stock days', v:fmt(d.stock_level_days,' d') },{ i:'ti-chart-line', l:'Inflation risk', v:d.inflation_risk||'—' }];
-    case 'regulator': return [{ i:'ti-gauge', l:'Confidence', v:`${Math.round((d.confidence_score||0)*100)}%` },{ i:'ti-ship', l:'Import trigger', v:d.import_trigger?'Yes':'No' },{ i:'ti-user-exclamation', l:'Escalated', v:d.escalate_to_human?'Yes':'No' }];
+    case 'farmer':    return [{ i:'ti-alert-triangle', l:'Max deficit',      v:fmt(d.deficit_pct,'%') },{ i:'ti-cloud-rain', l:'Climate risk', v:fmt(d.climate_risk_score) },{ i:'ti-map-pin', l:'Deficit regions', v:(d.deficit_regions||[]).slice(0,2).join(', ')||'—' }];
+    case 'logistics': return [{ i:'ti-package',        l:'Chain loss',       v:fmt(d.loss_estimate_pct,'%') },{ i:'ti-alert-triangle', l:'Bottleneck', v:(d.bottlenecks||[]).slice(0,1)[0]||'None' },{ i:'ti-database', l:'Storage avail.', v:d.storage_capacity_available_tons ? `${(d.storage_capacity_available_tons/1000).toFixed(0)}k t` : '—' }];
+    case 'energy':    return [{ i:'ti-currency-dollar', l:'Price / kWh',     v:`$${fmt(d.energy_price_usd_kwh)}` },{ i:'ti-activity', l:'Grid load', v:fmt(d.grid_load_pct,'%') },{ i:'ti-alert-triangle', l:'Alert', v:d.shortage_alert||'none' }];
+    case 'market':    return [{ i:'ti-trending-up',    l:'Demand signal',    v:d.demand_signal||'—' },{ i:'ti-calendar', l:'Stock days', v:fmt(d.stock_level_days,' d') },{ i:'ti-chart-line', l:'Inflation risk', v:d.inflation_risk||'—' }];
+    case 'regulator': return [{ i:'ti-gauge',          l:'Confidence',       v:`${Math.round((d.confidence_score||0)*100)}%` },{ i:'ti-ship', l:'Import trigger', v:d.import_trigger?'Yes':'No' },{ i:'ti-user-exclamation', l:'Escalated', v:d.escalate_to_human?'Yes':'No' }];
     default: return [];
   }
 };
 
 const agentRiskScore = (agent, d) => {
   if (!d) return 0;
-  return d.climate_risk_score || d.logistics_risk_score || d.energy_risk_score || d.market_risk_score || d.confidence_score || 0;
+  return d.climate_risk_score || d.logistics_risk_score || d.energy_risk_score || d.market_risk_score || (1 - (d.confidence_score||0)) || 0;
 };
 
-/* ─── Sidebar ───────────────────────────────────────────────────────────────── */
 function Sidebar({ currentPhase, agentStates }) {
   return React.createElement('div', { style:{ width:240, minWidth:240, background:'#0f1623', display:'flex', flexDirection:'column', height:'100vh', position:'sticky', top:0 } },
     React.createElement('div', { style:{ padding:'20px 16px 12px' } },
@@ -133,7 +131,6 @@ function Sidebar({ currentPhase, agentStates }) {
   );
 }
 
-/* ─── Phase stepper ─────────────────────────────────────────────────────────── */
 function PhaseStepper({ currentPhase }) {
   return React.createElement('div', { style:{ display:'flex', alignItems:'flex-start', marginBottom:20 } },
     PHASE_DEFS.map((p, i) => {
@@ -151,7 +148,6 @@ function PhaseStepper({ currentPhase }) {
   );
 }
 
-/* ─── Agent card ────────────────────────────────────────────────────────────── */
 function AgentCard({ agent, state, onInspect }) {
   const m = AGENT_META[agent];
   const { status, data } = state;
@@ -159,10 +155,8 @@ function AgentCard({ agent, state, onInspect }) {
   const metrics = done ? agentMetrics(agent, data) : [];
   const rs = agentRiskScore(agent, data);
   const rl = riskLevel(rs);
-
   const borderColor = running ? m.border : done ? m.border : '#e2e8f0';
   const pulseAnim = running ? `border-pulse-${agent} 2s ease-in-out infinite` : undefined;
-
   return React.createElement('div', {
     onClick: done ? onInspect : undefined,
     style:{ background:'#fff', borderRadius:8, padding:'14px 16px', border:`1px solid ${borderColor}`, opacity:waiting?0.38:1, transition:'opacity 0.4s, border-color 0.2s', cursor:done?'pointer':'default', gridColumn:agent==='regulator'?'1 / -1':undefined, animation:pulseAnim }
@@ -195,7 +189,6 @@ function AgentCard({ agent, state, onInspect }) {
   );
 }
 
-/* ─── Conflict panel ────────────────────────────────────────────────────────── */
 function ConflictPanel({ conflicts }) {
   if (!conflicts.length) return null;
   return React.createElement('div', { style:{ background:'#fffbeb', border:'1px solid #f59e0b', borderRadius:8, padding:'14px 16px', marginBottom:16, animation:'fade-in 0.3s ease' } },
@@ -203,18 +196,15 @@ function ConflictPanel({ conflicts }) {
       React.createElement('i', { className:'ti ti-alert-triangle', style:{ fontSize:14, color:'#f59e0b' } }),
       React.createElement('span', { style:{ fontSize:13, fontWeight:500, color:'#92400e' } }, `${conflicts.length} conflict${conflicts.length>1?'s':''} detected by coordinator`)
     ),
-    React.createElement('div', { style:{ display:'flex', flexDirection:'column', gap:5 } },
-      conflicts.map((c,i) =>
-        React.createElement('div', { key:i, style:{ display:'flex', gap:8 } },
-          React.createElement('span', { style:{ color:'#d97706', fontSize:12, flexShrink:0, marginTop:1 } }, '·'),
-          React.createElement('span', { style:{ fontSize:12, color:'#78350f', lineHeight:1.6 } }, c)
-        )
+    conflicts.map((c,i) =>
+      React.createElement('div', { key:i, style:{ display:'flex', gap:8 } },
+        React.createElement('span', { style:{ color:'#d97706', fontSize:12, flexShrink:0, marginTop:1 } }, '·'),
+        React.createElement('span', { style:{ fontSize:12, color:'#78350f', lineHeight:1.6 } }, c)
       )
     )
   );
 }
 
-/* ─── Confidence gauge (SVG) ────────────────────────────────────────────────── */
 function ConfGauge({ score }) {
   const pct = Math.round((score||0)*100);
   const r=16, circ=2*Math.PI*r;
@@ -227,7 +217,6 @@ function ConfGauge({ score }) {
   );
 }
 
-/* ─── Action chip ───────────────────────────────────────────────────────────── */
 function ActionChip({ label, icon, active }) {
   return React.createElement('div', { style:{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:4, border:`1px solid ${active?'#86efac':'#e2e8f0'}`, background:active?'#f0fdf4':'#fafafa', fontSize:11, color:active?'#15803d':'#94a3b8', fontWeight:500 } },
     React.createElement('i', { className:`ti ${icon}`, style:{ fontSize:11 } }),
@@ -235,11 +224,11 @@ function ActionChip({ label, icon, active }) {
   );
 }
 
-/* ─── Final decision card ───────────────────────────────────────────────────── */
 function FinalDecision({ decision }) {
   const [showJSON, setShowJSON] = useState(false);
   if (!decision) return null;
   const esc = decision.escalate_to_human;
+  const pdfUrl = decision.report_url || null;
   return React.createElement('div', { style:{ borderRadius:8, padding:'14px 16px', marginBottom:16, background:esc?'#fffbeb':'#f0fdf4', border:`1px solid ${esc?'#f59e0b':'#86efac'}`, borderLeft:`3px solid ${esc?'#f59e0b':'#22c55e'}`, animation:'fade-in 0.4s ease' } },
     React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:10, marginBottom:12 } },
       React.createElement('i', { className:`ti ${esc?'ti-alert-triangle':'ti-check'}`, style:{ fontSize:16, color:esc?'#f59e0b':'#22c55e' } }),
@@ -253,7 +242,7 @@ function FinalDecision({ decision }) {
       React.createElement(ActionChip, { label:'Price controls',   icon:'ti-tag',  active:!!decision.price_controls }),
       React.createElement(ActionChip, { label:'Energy reserves',  icon:'ti-bolt', active:!!decision.emergency_reserves }),
     ),
-    decision.subsidy_plan?.length > 0 && React.createElement('div', { style:{ marginBottom:12 } },
+    decision.subsidy_plan && decision.subsidy_plan.length > 0 && React.createElement('div', { style:{ marginBottom:12 } },
       React.createElement('div', { style:{ fontSize:10, color:'#94a3b8', fontWeight:500, letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:6 } }, 'Subsidy plan'),
       React.createElement('table', { style:{ width:'100%', borderCollapse:'collapse', fontSize:12 } },
         React.createElement('thead', null,
@@ -274,7 +263,12 @@ function FinalDecision({ decision }) {
       )
     ),
     React.createElement('div', { style:{ display:'flex', gap:8, alignItems:'center' } },
-      decision.report_url && React.createElement('a', { href:decision.report_url ? decision.report_url + '/pdf' : '#', target:'_blank', download:'CrisisNet_report.pdf', style:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', background:'#0f1623', color:'#fff', fontSize:12, fontWeight:500, borderRadius:6, textDecoration:'none' } },
+      pdfUrl && React.createElement('a', {
+        href: pdfUrl,
+        target: '_blank',
+        download: 'CrisisNet_report.pdf',
+        style:{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', background:'#0f1623', color:'#fff', fontSize:12, fontWeight:500, borderRadius:6, textDecoration:'none' }
+      },
         React.createElement('i', { className:'ti ti-download', style:{ fontSize:12 } }),
         'Download report'
       ),
@@ -289,7 +283,6 @@ function FinalDecision({ decision }) {
   );
 }
 
-/* ─── Band Room terminal ────────────────────────────────────────────────────── */
 function BandRoom({ log, termRef }) {
   return React.createElement('div', { style:{ background:'#0f1623', borderRadius:8, padding:'12px 16px', height:200, display:'flex', flexDirection:'column' } },
     React.createElement('div', { style:{ display:'flex', alignItems:'center', gap:8, marginBottom:10, flexShrink:0 } },
@@ -300,7 +293,7 @@ function BandRoom({ log, termRef }) {
       log.length === 0
         ? React.createElement('div', { style:{ fontSize:11, color:'#334155', fontFamily:"'JetBrains Mono',monospace" } }, 'Waiting for pipeline start…')
         : log.map((e,i) =>
-            React.createElement('div', { key:i, style:{ fontSize:11.5, fontFamily:"'JetBrains Mono',monospace", color:e.col, lineHeight:1.5, animation:'fade-in 0.2s ease' } },
+            React.createElement('div', { key:i, style:{ fontSize:11.5, fontFamily:"'JetBrains Mono',monospace", color:e.col, lineHeight:1.5 } },
               React.createElement('span', { style:{ color:'#334155', marginRight:10 } }, e.ts),
               e.txt
             )
@@ -309,7 +302,6 @@ function BandRoom({ log, termRef }) {
   );
 }
 
-/* ─── Slide-in panel ────────────────────────────────────────────────────────── */
 function SlideIn({ agent, data, onClose }) {
   const m = agent ? AGENT_META[agent] : null;
   return React.createElement(React.Fragment, null,
@@ -333,7 +325,6 @@ function SlideIn({ agent, data, onClose }) {
   );
 }
 
-/* ─── Dashboard (main) ──────────────────────────────────────────────────────── */
 function Dashboard() {
   const [scenario,      setScenario]      = useState(SCENARIOS[0]);
   const [pipelineState, setPipelineState] = useState('idle');
@@ -345,10 +336,9 @@ function Dashboard() {
   const [bandLog,       setBandLog]       = useState([]);
   const [panelAgent,    setPanelAgent]    = useState(null);
   const [panelData,     setPanelData]     = useState(null);
-
-  const wsRef       = useRef(null);
-  const timersRef   = useRef([]);
-  const termRef     = useRef(null);
+  const wsRef     = useRef(null);
+  const timersRef = useRef([]);
+  const termRef   = useRef(null);
 
   const addLog = useCallback((txt, col) => {
     const ts = new Date().toISOString().substring(11,19);
@@ -396,12 +386,12 @@ function Dashboard() {
     setPipelineState('running');
     timersRef.current.forEach(clearTimeout); timersRef.current = [];
     try {
-      const ws = new WebSocket('wss://crisisnet-rf4u.onrender.com/ws');
+      const ws = new WebSocket(BACKEND.replace('https','wss').replace('http','ws') + '/ws');
       wsRef.current = ws;
-      ws.onopen  = () => ws.send(JSON.stringify({ scenario }));
+      ws.onopen    = () => ws.send(JSON.stringify({ scenario }));
       ws.onmessage = e => { try { handleEvent(JSON.parse(e.data)); } catch {} };
-      ws.onerror = () => { ws.close(); simulate(scenario); };
-      ws.onclose = () => { wsRef.current = null; };
+      ws.onerror   = () => { ws.close(); simulate(scenario); };
+      ws.onclose   = () => { wsRef.current = null; };
     } catch { simulate(scenario); }
   };
 
@@ -416,18 +406,12 @@ function Dashboard() {
 
   return React.createElement('div', { style:{ display:'flex', height:'100vh', overflow:'hidden' } },
     React.createElement(Sidebar, { currentPhase, agentStates }),
-
     React.createElement('div', { style:{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' } },
-      /* Progress bar strip */
       React.createElement('div', { style:{ height:1, background:'#f1f5f9', position:'relative', overflow:'hidden', flexShrink:0 } },
         running && React.createElement('div', { style:{ position:'absolute', top:0, height:'100%', width:'20%', background:'#7c3aed', animation:'progress-run 1.8s ease-in-out infinite' } }),
         complete && React.createElement('div', { style:{ position:'absolute', inset:0, background:'#7c3aed' } })
       ),
-
-      /* Scrollable content */
       React.createElement('div', { style:{ flex:1, overflowY:'auto', padding:24 } },
-
-        /* Top bar */
         React.createElement('div', { style:{ display:'flex', alignItems:'center', marginBottom:20 } },
           React.createElement('h1', { style:{ fontSize:20, fontWeight:500, flex:1 } }, 'Security Assessment'),
           React.createElement('button', {
@@ -438,8 +422,6 @@ function Dashboard() {
             running ? 'Stop' : 'Run Pipeline'
           )
         ),
-
-        /* Scenario input */
         React.createElement('div', { style:{ border:'1px solid #e2e8f0', borderRadius:8, padding:16, marginBottom:20 } },
           React.createElement('div', { style:{ fontSize:11, fontWeight:500, color:'#94a3b8', letterSpacing:'0.05em', textTransform:'uppercase', marginBottom:8 } }, 'Scenario'),
           React.createElement('textarea', { value:scenario, onChange:e=>setScenario(e.target.value), rows:3, style:{ width:'100%', resize:'none', border:'1px solid #e2e8f0', borderRadius:6, padding:'8px 10px', fontSize:13, color:'#0f1623', lineHeight:1.6, outline:'none' } }),
@@ -449,29 +431,17 @@ function Dashboard() {
             )
           )
         ),
-
-        /* Phase stepper */
         React.createElement(PhaseStepper, { currentPhase }),
-
-        /* Agent grid */
         React.createElement('div', { style:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 } },
           ['farmer','energy','logistics','market','regulator'].map(a =>
             React.createElement(AgentCard, { key:a, agent:a, state:agentStates[a], onInspect:()=>{ setPanelAgent(a); setPanelData(agentStates[a].data); } })
           )
         ),
-
-        /* Conflict panel */
         React.createElement(ConflictPanel, { conflicts }),
-
-        /* Final decision */
         React.createElement(FinalDecision, { decision:finalDecision }),
-
-        /* Band Room */
         React.createElement(BandRoom, { log:bandLog, termRef })
       )
     ),
-
-    /* Slide-in inspector */
     React.createElement(SlideIn, { agent:panelAgent, data:panelData, onClose:()=>setPanelAgent(null) })
   );
 }
