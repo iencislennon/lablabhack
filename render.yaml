@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: crisisnet
+    runtime: python
+    buildCommand: pip install -r requirements.txt && pip install weasyprint
+    startCommand: python -m uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: FEATHERLESS_API_KEY
+        sync: false
+      - key: FEATHERLESS_BASE_URL
+        value: https://api.featherless.ai/v1
+      - key: CHROMA_PERSIST_DIR
+        value: /tmp/chroma_db
+      - key: PYTHON_VERSION
+        value: 3.11.0
