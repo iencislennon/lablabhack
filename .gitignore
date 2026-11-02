@@ -42,3 +42,5 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+# Generated reports (a sanitized sample lives in docs/sample_report.md)
+reports/
