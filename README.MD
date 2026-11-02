@@ -1,4 +1,6 @@
-# 🌾⚡ FoodEnergyMAS
+# CrisisNet (FoodEnergyMAS)
+
+> Repository name `lablabhack`; the system is presented as **CrisisNet**. Built for a lablab.ai hackathon. Team credits and exact personal contribution: *to be confirmed against the lablab.ai submission page before publishing.*
 
 **Multi-Agent System for Food and Energy Security Coordination**
 
@@ -361,3 +363,26 @@ Ukraine conflict escalation cuts corn exports by 35%. Energy grid attacks reduce
 ---
 
 *FoodEnergyMAS — turning crisis scenarios into policy recommendations, one agent at a time.*
+
+
+## Run locally
+
+```bash
+cp .env.example .env              # add FEATHERLESS_API_KEY
+pip install -r requirements.txt
+python -m uvicorn backend.main:app --port 8000
+curl localhost:8000/health        # {"status":"healthy"}
+
+cd frontend-app && cp .env.example .env && npm ci && npm run dev
+```
+
+The frontend reads the backend address from `VITE_API_URL` (default `http://localhost:8000`).
+
+## Tests
+
+```bash
+pip install pydantic loguru pytest && python -m pytest -q tests   # conflict-detection and schema tests
+cd frontend-app && npm run lint && npm run build
+```
+
+Not yet covered: WebSocket lifecycle, report generation, escalation threshold, end-to-end smoke test, offline demo provider. A sanitized sample report is in `docs/sample_report.md`; generated reports are no longer tracked.

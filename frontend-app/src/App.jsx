@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { API_URL, WS_URL } from "./config";
 
 // ── Agent config ───────────────────────────────────────────────────────────────
 const AGENTS = {
@@ -24,7 +25,7 @@ function Tag({ color, bg, border, children }) {
   );
 }
 
-function RiskBar({ value, color }) {
+function RiskBar({ value }) {
   const pct = Math.round((value || 0) * 100);
   const barColor = pct >= 70 ? "#e53e3e" : pct >= 40 ? "#dd6b20" : "#38a169";
   return (
@@ -419,10 +420,10 @@ export default function Dashboard() {
   const run = async () => {
     reset(); setRunning(true);
     try {
-      const ws = new WebSocket("ws://localhost:8000/ws");
+      const ws = new WebSocket(WS_URL);
       wsRef.current = ws;
       ws.onopen    = () => ws.send(JSON.stringify({ scenario }));
-      ws.onmessage = (msg) => { try { handleEvent(JSON.parse(msg.data)); } catch {} };
+      ws.onmessage = (msg) => { try { handleEvent(JSON.parse(msg.data)); } catch { /* ignore malformed event */ } };
       ws.onerror   = () => runViaRest();
       ws.onclose   = () => setRunning(false);
     } catch { runViaRest(); }
@@ -430,7 +431,7 @@ export default function Dashboard() {
 
   const runViaRest = async () => {
     try {
-      const res  = await fetch("http://localhost:8000/run", {
+      const res  = await fetch(`${API_URL}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scenario }),
