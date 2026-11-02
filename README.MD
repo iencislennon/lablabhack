@@ -1,6 +1,6 @@
 # CrisisNet (FoodEnergyMAS)
 
-> Repository name `lablabhack`; the system is presented as **CrisisNet**. Built for a lablab.ai hackathon. Team credits and exact personal contribution: *to be confirmed against the lablab.ai submission page before publishing.*
+> Repository name `lablabhack`; the system is presented as **CrisisNet**. Built solo for a lablab.ai hackathon.
 
 **Multi-Agent System for Food and Energy Security Coordination**
 
